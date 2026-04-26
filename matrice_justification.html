@@ -1000,7 +1000,7 @@ const lancement = (() => {
     if (pjRows.length === 0) { show('l-s1-vide'); }
     else {
       document.getElementById('l-s1-badge-count').textContent = pjRows.length + ' ligne(s)';
-      renderGroupList('l-s1-data-list', groupByCol(pjRows, 'pfi'));
+      renderGroupList('l-s1-data-list', groupByCol(pjRows, 'Programme_de_financement'));
       document.getElementById('l-s1-total').textContent = pjRows.length + ' ligne(s)';
       show('l-s1-present');
     }
@@ -1021,7 +1021,7 @@ const lancement = (() => {
     catch(e) { hide('l-s2-loading'); showErr('l-s3-err', 'l-s3-err-msg', e.message); setStep(3); return; }
     hide('l-s2-loading');
     if (jdpRows.length > 0) {
-      renderGroupList('l-s2-data-list', groupByCol(jdpRows, 'pfi'));
+      renderGroupList('l-s2-data-list', groupByCol(jdpRows, 'Programme_de_financement'));
       document.getElementById('l-s2-total').textContent = jdpRows.length + ' ligne(s)';
       show('l-s2-filled');
     } else { show('l-s2-empty'); }
@@ -1034,7 +1034,7 @@ const lancement = (() => {
     renderDataBlock('l-s3-details-26', [
       { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
       { label: 'JDP 2025', pill: jdpRows.length + ' ligne(s) confirmées', pillCls: 'pill-ok' },
-      { label: 'Premier PFi', value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+      { label: 'Premier PFi', value: str(first.Programme_de_financement) + (first.Description_du_programme_de_financement ? ' — ' + str(first.Description_du_programme_de_financement) : '') },
     ]);
     show('l-s3-jdp26'); setStep(3);
   }
@@ -1115,7 +1115,7 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
 
   function validerExercice(rows) {
     for (const row of rows) {
-      const v = str(row.exercice);
+      const v = str(row.Exercice_comptable);
       if (v !== '' && v !== annee) return { ok: false, id: row.id, valeur: v };
     }
     return { ok: true };
@@ -1123,7 +1123,7 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
 
   function validerCentreCouts(rows) {
     for (const row of rows) {
-      const raw = str(row.centre_couts);
+      const raw = str(row.Centre_de_couts);
       if (!raw) continue;
       const v = raw.toUpperCase();
       const ok = v.startsWith('MSL') || CC_LISTE_BLANCHE.has(v) ||
@@ -1138,13 +1138,13 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
     renderDataBlock(`${prefix}-s1-ok-details`, [
       { label: 'Nombre de lignes',
         pill: tableRows.length + ' ligne' + (tableRows.length > 1 ? 's' : ''), pillCls: 'pill-ok' },
-      { label: 'Exercice comptable', value: str(first.exercice) },
+      { label: 'Exercice comptable', value: str(first.Exercice_comptable) },
       { label: 'Programme de financement (PFi)',
-        value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+        value: str(first.Programme_de_financement) + (first.Description_du_programme_de_financement ? ' — ' + str(first.Description_du_programme_de_financement) : '') },
       { label: 'Centre financier (CFi)',
-        value: str(first.cfi) + (first.cfi_libelle ? ' — ' + str(first.cfi_libelle) : '') },
+        value: str(first.Centre_financier) + (first.Designation_du_centre_financier ? ' — ' + str(first.Designation_du_centre_financier) : '') },
       { label: 'Centre de coûts (1ère ligne)',
-        value: str(first.centre_couts) + (forceCC ? ' ⚠ (forcé)' : '') },
+        value: str(first.Centre_de_couts) + (forceCC ? ' ⚠ (forcé)' : '') },
     ]);
     show(`${prefix}-s1-ok`);
     buildConfirmation();
@@ -1155,11 +1155,11 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
     renderDataBlock(`${prefix}-s2-summary`, [
       { label: 'Nombre de lignes',
         pill: tableRows.length + ' ligne' + (tableRows.length > 1 ? 's' : '') },
-      { label: 'Exercice comptable', value: str(first.exercice) },
+      { label: 'Exercice comptable', value: str(first.Exercice_comptable) },
       { label: 'Programme de financement (PFi)',
-        value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+        value: str(first.Programme_de_financement) + (first.Description_du_programme_de_financement ? ' — ' + str(first.Description_du_programme_de_financement) : '') },
       { label: 'Centre financier (CFi)',
-        value: str(first.cfi) + (first.cfi_libelle ? ' — ' + str(first.cfi_libelle) : '') },
+        value: str(first.Centre_financier) + (first.Designation_du_centre_financier ? ' — ' + str(first.Designation_du_centre_financier) : '') },
       { label: 'Centre de coûts forcé',
         value: forceCC ? 'Oui — résultats potentiellement erronés' : 'Non' },
     ]);
@@ -1214,11 +1214,11 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
       renderDataBlock(`${prefix}-s3-ok-details`, [
         { label: 'Lignes validées',
           pill: tableRows.length + ' ligne' + (tableRows.length > 1 ? 's' : ''), pillCls: 'pill-ok' },
-        { label: 'Exercice comptable', value: str(first.exercice) },
+        { label: 'Exercice comptable', value: str(first.Exercice_comptable) },
         { label: 'Programme de financement (PFi)',
-          value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+          value: str(first.Programme_de_financement) + (first.Description_du_programme_de_financement ? ' — ' + str(first.Description_du_programme_de_financement) : '') },
         { label: 'Centre financier (CFi)',
-          value: str(first.cfi) + (first.cfi_libelle ? ' — ' + str(first.cfi_libelle) : '') },
+          value: str(first.Centre_financier) + (first.Designation_du_centre_financier ? ' — ' + str(first.Designation_du_centre_financier) : '') },
       ]);
       show(`${prefix}-s3-ok`); setStep(3);
     } catch(e) { showErr(`${prefix}-s3-err`, `${prefix}-s3-err-msg`, e.message); setStep(3); }
