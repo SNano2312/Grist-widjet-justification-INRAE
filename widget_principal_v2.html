@@ -1,0 +1,404 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:14px;color:var(--color-text-primary);line-height:1.6}
+.wrap{padding:1.25rem}
+.step{display:none}.step.active{display:block}
+
+.stepper{display:flex;margin-bottom:1.5rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.st{flex:1;text-align:center;padding:8px 4px;font-size:11px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary)}
+.st:last-child{border-right:none}
+.st.done{background:var(--color-background-success);color:var(--color-text-success)}
+.st.active{background:var(--color-background-info);color:var(--color-text-info);font-weight:500}
+
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:15px;font-weight:500;margin-bottom:0.4rem}
+.card-sub{font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:1rem}
+
+.badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:var(--border-radius-md);margin-bottom:0.75rem}
+.badge-info{background:var(--color-background-info);color:var(--color-text-info)}
+.badge-warn{background:var(--color-background-warning);color:var(--color-text-warning)}
+.badge-ok{background:var(--color-background-success);color:var(--color-text-success)}
+.badge-err{background:var(--color-background-danger);color:var(--color-text-danger)}
+
+.kv{display:flex;gap:8px;align-items:baseline;margin-bottom:6px;font-size:13px}
+.kv-label{color:var(--color-text-secondary);min-width:200px;flex-shrink:0}
+.kv-val{font-weight:500}
+
+.sep{border-top:0.5px solid var(--color-border-tertiary);margin:1rem 0}
+
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:1rem}
+button{font-size:13px;padding:7px 16px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;transition:background .15s}
+button:hover{background:var(--color-background-secondary)}
+button:active{transform:scale(.98)}
+button:disabled{opacity:0.4;cursor:not-allowed}
+.btn-primary{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.btn-primary:hover{opacity:.85;background:var(--color-background-info)}
+.btn-danger{background:var(--color-background-danger);color:var(--color-text-danger);border-color:var(--color-border-danger)}
+
+.data-block{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden;margin-top:0.75rem}
+.data-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;font-size:12px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.data-row:last-child{border-bottom:none}
+.data-row:nth-child(even){background:var(--color-background-secondary)}
+.pill{font-size:11px;padding:2px 8px;border-radius:var(--border-radius-md);background:var(--color-background-info);color:var(--color-text-info)}
+.pill-ok{background:var(--color-background-success);color:var(--color-text-success)}
+
+.alert{border-radius:var(--border-radius-md);padding:10px 14px;font-size:13px;margin-bottom:0.75rem;border-left:3px solid}
+.alert-warn{background:var(--color-background-warning);color:var(--color-text-warning);border-color:var(--color-border-warning)}
+.alert-err{background:var(--color-background-danger);color:var(--color-text-danger);border-color:var(--color-border-danger)}
+.alert-ok{background:var(--color-background-success);color:var(--color-text-success);border-color:var(--color-border-success)}
+.alert-info{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--color-border-secondary);border-top-color:var(--color-text-info);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">Widget principal de lancement de la matrice de justification INRAE</h2>
+
+<div class="wrap">
+
+  <div class="stepper">
+    <div class="st active" id="st0">1 · Init</div>
+    <div class="st" id="st1">2 · Justif. préc.</div>
+    <div class="st" id="st2">3 · JDP 2025</div>
+    <div class="st" id="st3">4 · Résultat</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       ÉTAPE 1 — INITIALISATION
+  ════════════════════════════════════════════ -->
+  <div id="step-0" class="step active">
+    <div class="card">
+      <div class="card-title">Lancement de la matrice</div>
+      <div class="card-sub">Le widget détecte votre session et prépare les tables pour l'analyse.</div>
+      <div class="kv"><span class="kv-label">Utilisateur</span><span class="kv-val" id="s0-user"><span class="spinner"></span></span></div>
+      <div class="kv"><span class="kv-label">Justifications précédentes (PIECES_JUSTIF)</span><span class="kv-val" id="s0-pj">—</span></div>
+      <div class="kv"><span class="kv-label">Journal des pièces 2025 (JDP_2025)</span><span class="kv-val" id="s0-jdp">—</span></div>
+      <div id="s0-err" class="alert alert-err" style="display:none;margin-top:.75rem"></div>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-launch" onclick="lancerAnalyse()" disabled>Lancer l'analyse</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       ÉTAPE 2 — JUSTIFICATIONS PRÉCÉDENTES
+  ════════════════════════════════════════════ -->
+  <div id="step-1" class="step">
+
+    <!-- Cas A : aucune justification présente dans PIECES_JUSTIF -->
+    <div id="s1-vide" class="card" style="display:none">
+      <span class="badge badge-info">Aucune justification précédente</span>
+      <div class="card-title">Pas de données dans PIECES_JUSTIF</div>
+      <div class="card-sub">
+        Aucune justification précédente n'est chargée pour votre session.<br><br>
+        Toutes les lignes potentiellement à justifier seront incluses dans la justification qui sera créée par la matrice.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="checkJDP25()">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- Cas B : des justifications sont présentes -->
+    <div id="s1-present" class="card" style="display:none">
+      <span class="badge badge-warn" id="s1-badge-count"></span>
+      <div class="card-title">Justifications précédentes détectées</div>
+      <div class="card-sub">
+        Les lignes ci-dessous sont déjà chargées dans <strong style="font-weight:500">PIECES_JUSTIF</strong> pour votre session. Elles seront exclues de la justification à créer.
+      </div>
+      <div class="data-block" id="s1-data-list"></div>
+      <div class="kv" style="margin-top:.75rem"><span class="kv-label">Total lignes chargées</span><span class="kv-val" id="s1-total">—</span></div>
+      <div class="alert alert-warn" style="margin-top:.75rem">
+        Si ces données ne correspondent pas à ce que vous souhaitez, utilisez le bouton de nettoyage avant de relancer.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="checkJDP25()">Utiliser ces justifications et continuer →</button>
+        <button class="btn-danger" onclick="effacerPJ()">Effacer et repartir sans justifications précédentes</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       ÉTAPE 3 — VÉRIFICATION JDP 2025
+  ════════════════════════════════════════════ -->
+  <div id="step-2" class="step">
+
+    <div id="s2-loading" class="card" style="display:none">
+      <div class="card-sub"><span class="spinner"></span>Vérification de JDP_2025 en cours...</div>
+    </div>
+
+    <!-- Cas A : JDP 2025 déjà présent -->
+    <div id="s2-filled" class="card" style="display:none">
+      <span class="badge badge-warn">Données JDP 2025 déjà présentes</span>
+      <div class="card-title">Journal des pièces 2025 détecté dans la matrice</div>
+      <div class="card-sub">
+        Des données sont déjà enregistrées pour votre session. Vérifiez ci-dessous qu'elles correspondent à ce que vous souhaitez justifier.
+      </div>
+      <div class="data-block" id="s2-data-list"></div>
+      <div class="kv" style="margin-top:.75rem"><span class="kv-label">Total lignes présentes</span><span class="kv-val" id="s2-total">—</span></div>
+      <div class="alert alert-warn" style="margin-top:.75rem">
+        Vérifiez que ces données incluent tous les PFi et CFi souhaités. Seule la première ligne de chaque combinaison est affichée ici.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="confirmerJDP25()">Oui, données correctes → passer au JDP 2026</button>
+        <button class="btn-danger" onclick="effacerJDP25()">Non, effacer et réinjecter le JDP 2025</button>
+      </div>
+    </div>
+
+    <!-- Cas B : JDP 2025 vide -->
+    <div id="s2-empty" class="card" style="display:none">
+      <span class="badge badge-info">JDP 2025 vide</span>
+      <div class="card-title">Aucune donnée JDP 2025 dans la matrice</div>
+      <div class="card-sub">Souhaitez-vous injecter le Journal des Pièces 2025 avant de continuer ?</div>
+      <div class="alert alert-info">
+        <strong style="font-weight:500">Oui :</strong> la justification incluera les lignes payées en 2025.<br>
+        <strong style="font-weight:500">Non :</strong> la justification n'inclura pas les lignes payées en 2025.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="versJDP25()">Oui, injecter le JDP 2025</button>
+        <button onclick="versJDP26()">Non, passer directement au JDP 2026</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       ÉTAPE 4 — RÉSULTAT
+  ════════════════════════════════════════════ -->
+  <div id="step-3" class="step">
+
+    <div id="s3-jdp25" class="card" style="display:none">
+      <span class="badge badge-ok">Matrice lancée</span>
+      <div class="card-title">Prêt pour l'injection du JDP 2025</div>
+      <div class="kv"><span class="kv-label">Justifications précédentes utilisées</span><span class="kv-val" id="s3-pj-count">—</span></div>
+      <div class="kv"><span class="kv-label">Étape suivante</span><span class="kv-val">Injection du Journal des Pièces 2025</span></div>
+      <div class="sep"></div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="sendPrompt('La matrice est lancée. Je dois maintenant injecter le Journal des Pièces 2025. Quelles sont les prochaines étapes ?')">Voir les prochaines étapes ↗</button>
+      </div>
+    </div>
+
+    <div id="s3-jdp26" class="card" style="display:none">
+      <span class="badge badge-ok">Matrice lancée</span>
+      <div class="card-title">Prêt pour l'injection du JDP 2026</div>
+      <div class="kv"><span class="kv-label">Justifications précédentes utilisées</span><span class="kv-val" id="s3-pj-count2">—</span></div>
+      <div class="kv"><span class="kv-label">JDP 2025</span><span class="kv-val" id="s3-jdp25-status">—</span></div>
+      <div class="kv"><span class="kv-label">Étape suivante</span><span class="kv-val">Injection du Journal des Pièces 2026</span></div>
+      <div class="sep"></div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="sendPrompt('La matrice est lancée. Je dois maintenant injecter le Journal des Pièces 2026. Quelles sont les prochaines étapes ?')">Voir les prochaines étapes ↗</button>
+      </div>
+    </div>
+
+    <div id="s3-error" class="card" style="display:none">
+      <span class="badge badge-err">Erreur</span>
+      <div class="card-title">Une erreur est survenue</div>
+      <div id="s3-errmsg" class="card-sub"></div>
+      <div class="alert alert-err">Faites une capture d'écran et déposez un ticket Ariane via SIFAC (Espace Aide → Créer un ticket Ariane).</div>
+      <div class="btn-row">
+        <button onclick="location.reload()">Recommencer</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+let currentUser = null;
+let pjRows = [];
+let jdpRows = [];
+
+function setStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  ['st0','st1','st2','st3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = 'st' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+}
+
+function show(id) { document.getElementById(id).style.display = 'block'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+async function fetchUserRows(table, emailCol) {
+  try {
+    const t = await grist.docApi.fetchTable(table);
+    const ids = t.id || [];
+    const emails = t[emailCol] || [];
+    return ids.map((id, i) => {
+      const rec = { id };
+      Object.keys(t).forEach(k => { rec[k] = t[k][i]; });
+      return rec;
+    }).filter(r => r[emailCol] === currentUser);
+  } catch(e) { return []; }
+}
+
+function groupBy(rows, key) {
+  const groups = {};
+  rows.forEach(r => {
+    const k = (r[key] || '—');
+    if (!groups[k]) groups[k] = { key: k, count: 0, label: r[key+'_label'] || r[key] || '—' };
+    groups[k].count++;
+  });
+  return Object.values(groups);
+}
+
+function buildDataList(containerId, groups, labelKey) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  if (!groups.length) {
+    el.innerHTML = '<div class="data-row" style="color:var(--color-text-secondary)">Aucune donnée</div>';
+    return;
+  }
+  groups.slice(0, 20).forEach(g => {
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    row.innerHTML = '<span>' + (g.key || '—') + '</span><span class="pill">' + g.count + ' ligne' + (g.count > 1 ? 's' : '') + '</span>';
+    el.appendChild(row);
+  });
+  if (groups.length > 20) {
+    const more = document.createElement('div');
+    more.className = 'data-row';
+    more.style.color = 'var(--color-text-secondary)';
+    more.textContent = '… et ' + (groups.length - 20) + ' combinaison(s) supplémentaire(s)';
+    el.appendChild(more);
+  }
+}
+
+async function lancerAnalyse() {
+  document.getElementById('btn-launch').disabled = true;
+  document.getElementById('btn-launch').textContent = 'Chargement...';
+
+  try {
+    pjRows = await fetchUserRows('PIECES_JUSTIF', 'user_email');
+    jdpRows = await fetchUserRows('JDP_2025', 'user_email');
+  } catch(e) {
+    showError('Impossible de lire les tables Grist. Vérifiez les permissions du widget.\n\nDétail : ' + e.message);
+    return;
+  }
+
+  setStep(1);
+
+  if (pjRows.length === 0) {
+    show('s1-vide');
+  } else {
+    const groups = groupBy(pjRows, 'col_M');
+    document.getElementById('s1-badge-count').textContent = pjRows.length + ' ligne(s) chargée(s)';
+    buildDataList('s1-data-list', groups, 'col_M');
+    document.getElementById('s1-total').textContent = pjRows.length + ' ligne(s)';
+    show('s1-present');
+  }
+}
+
+async function effacerPJ() {
+  try {
+    const ids = pjRows.map(r => r.id);
+    if (ids.length) await grist.docApi.applyUserActions([['BulkRemoveRecord', 'PIECES_JUSTIF', ids]]);
+    pjRows = [];
+  } catch(e) {
+    showError('Erreur lors de l\'effacement de PIECES_JUSTIF : ' + e.message);
+    return;
+  }
+  hide('s1-present');
+  show('s1-vide');
+}
+
+async function checkJDP25() {
+  setStep(2);
+  show('s2-loading');
+
+  try {
+    jdpRows = await fetchUserRows('JDP_2025', 'user_email');
+  } catch(e) {
+    hide('s2-loading');
+    showError('Impossible de lire la table JDP_2025 : ' + e.message);
+    return;
+  }
+
+  hide('s2-loading');
+
+  if (jdpRows.length > 0) {
+    const groups = groupBy(jdpRows, 'col_pfi');
+    buildDataList('s2-data-list', groups, 'col_pfi');
+    document.getElementById('s2-total').textContent = jdpRows.length + ' ligne(s)';
+    show('s2-filled');
+  } else {
+    show('s2-empty');
+  }
+}
+
+function confirmerJDP25() {
+  document.getElementById('s3-pj-count2').textContent = pjRows.length + ' ligne(s)';
+  document.getElementById('s3-jdp25-status').textContent = jdpRows.length + ' ligne(s) confirmées et conservées';
+  show('s3-jdp26');
+  setStep(3);
+}
+
+async function effacerJDP25() {
+  try {
+    const ids = jdpRows.map(r => r.id);
+    if (ids.length) await grist.docApi.applyUserActions([['BulkRemoveRecord', 'JDP_2025', ids]]);
+    jdpRows = [];
+  } catch(e) {
+    showError('Erreur lors de l\'effacement de JDP_2025 : ' + e.message);
+    return;
+  }
+  hide('s2-filled');
+  show('s2-empty');
+}
+
+function versJDP25() {
+  document.getElementById('s3-pj-count').textContent = pjRows.length + ' ligne(s)';
+  show('s3-jdp25');
+  setStep(3);
+}
+
+function versJDP26() {
+  document.getElementById('s3-pj-count2').textContent = pjRows.length + ' ligne(s)';
+  document.getElementById('s3-jdp25-status').textContent = 'Ignoré (pas de données 2025)';
+  show('s3-jdp26');
+  setStep(3);
+}
+
+function showError(msg) {
+  document.getElementById('s3-errmsg').textContent = msg;
+  show('s3-error');
+  setStep(3);
+}
+
+async function boot() {
+  try {
+    grist.ready({ requiredAccess: 'full' });
+    const user = await grist.getUser();
+    currentUser = user.email || user.name || ('session_' + Math.random().toString(36).slice(2, 7));
+  } catch(e) {
+    currentUser = 'utilisateur_local';
+  }
+
+  document.getElementById('s0-user').textContent = currentUser;
+
+  try {
+    const pj = await fetchUserRows('PIECES_JUSTIF', 'user_email');
+    document.getElementById('s0-pj').textContent = pj.length > 0
+      ? pj.length + ' ligne(s) présente(s)'
+      : 'Vide';
+  } catch(e) {
+    document.getElementById('s0-pj').textContent = 'Non accessible';
+  }
+
+  try {
+    const jdp = await fetchUserRows('JDP_2025', 'user_email');
+    document.getElementById('s0-jdp').textContent = jdp.length > 0
+      ? jdp.length + ' ligne(s) présente(s)'
+      : 'Vide';
+  } catch(e) {
+    document.getElementById('s0-jdp').textContent = 'Non accessible';
+  }
+
+  document.getElementById('btn-launch').disabled = false;
+}
+
+boot();
+</script>
