@@ -1,1 +1,462 @@
 
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:14px;color:var(--color-text-primary);line-height:1.6}
+.wrap{padding:1.25rem}
+.step{display:none}.step.active{display:block}
+
+.stepper{display:flex;margin-bottom:1.5rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.st{flex:1;text-align:center;padding:8px 4px;font-size:11px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary)}
+.st:last-child{border-right:none}
+.st.done{background:var(--color-background-success);color:var(--color-text-success)}
+.st.active{background:var(--color-background-info);color:var(--color-text-info);font-weight:500}
+
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:15px;font-weight:500;margin-bottom:0.4rem}
+.card-sub{font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:1rem}
+
+.badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:var(--border-radius-md);margin-bottom:0.75rem}
+.badge-info{background:var(--color-background-info);color:var(--color-text-info)}
+.badge-warn{background:var(--color-background-warning);color:var(--color-text-warning)}
+.badge-ok{background:var(--color-background-success);color:var(--color-text-success)}
+.badge-err{background:var(--color-background-danger);color:var(--color-text-danger)}
+
+.kv{display:flex;gap:8px;align-items:baseline;margin-bottom:6px;font-size:13px}
+.kv-label{color:var(--color-text-secondary);min-width:180px;flex-shrink:0}
+.kv-val{font-weight:500;word-break:break-word}
+
+.sep{border-top:0.5px solid var(--color-border-tertiary);margin:1rem 0}
+
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:1rem}
+button{font-size:13px;padding:7px 16px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;transition:background .15s}
+button:hover{background:var(--color-background-secondary)}
+button:active{transform:scale(.98)}
+button:disabled{opacity:0.4;cursor:not-allowed}
+.btn-primary{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.btn-primary:hover{opacity:.85;background:var(--color-background-info)}
+.btn-danger{background:var(--color-background-danger);color:var(--color-text-danger);border-color:var(--color-border-danger)}
+.btn-warn{background:var(--color-background-warning);color:var(--color-text-warning);border-color:var(--color-border-warning)}
+
+.alert{border-radius:var(--border-radius-md);padding:10px 14px;font-size:13px;margin-bottom:0.75rem;border-left:3px solid;line-height:1.6}
+.alert-warn{background:var(--color-background-warning);color:var(--color-text-warning);border-color:var(--color-border-warning)}
+.alert-err{background:var(--color-background-danger);color:var(--color-text-danger);border-color:var(--color-border-danger)}
+.alert-ok{background:var(--color-background-success);color:var(--color-text-success);border-color:var(--color-border-success)}
+.alert-info{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+
+.data-block{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden;margin-top:0.75rem}
+.data-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;font-size:12px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.data-row:last-child{border-bottom:none}
+.data-row:nth-child(even){background:var(--color-background-secondary)}
+.data-label{color:var(--color-text-secondary);min-width:140px}
+.pill{font-size:11px;padding:2px 8px;border-radius:var(--border-radius-md);background:var(--color-background-info);color:var(--color-text-info);white-space:nowrap}
+.pill-ok{background:var(--color-background-success);color:var(--color-text-success)}
+.pill-err{background:var(--color-background-danger);color:var(--color-text-danger)}
+
+.err-detail{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;font-size:12px;font-family:var(--font-mono);margin-top:0.5rem;border:0.5px solid var(--color-border-tertiary)}
+
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--color-border-secondary);border-top-color:var(--color-text-info);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.progress-bar-wrap{background:var(--color-background-secondary);border-radius:var(--border-radius-md);height:6px;overflow:hidden;margin-top:0.75rem}
+.progress-bar{height:100%;background:var(--color-text-info);width:0%;transition:width .3s}
+</style>
+
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">Widget d'import du Journal des Pièces 2025</h2>
+
+<div class="wrap">
+
+  <div class="stepper">
+    <div class="st active" id="st0">1 · Vérification</div>
+    <div class="st" id="st1">2 · Validation</div>
+    <div class="st" id="st2">3 · Confirmation</div>
+    <div class="st" id="st3">4 · Résultat</div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       ÉTAPE 1 — VÉRIFICATION INITIALE
+  ════════════════════════════════════ -->
+  <div id="step-0" class="step active">
+    <div class="card">
+      <div class="card-title">Journal des Pièces 2025</div>
+      <div class="card-sub">Le widget va vérifier les données présentes dans la table <strong style="font-weight:500">JDP_2025</strong> pour votre session.</div>
+      <div class="kv"><span class="kv-label">Utilisateur</span><span class="kv-val" id="s0-user"><span class="spinner"></span></span></div>
+      <div class="kv"><span class="kv-label">Lignes dans JDP_2025</span><span class="kv-val" id="s0-count">—</span></div>
+      <div id="s0-err" class="alert alert-err" style="display:none"></div>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-start" onclick="startValidation()" disabled>Lancer la vérification</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       ÉTAPE 2 — VALIDATION MÉTIER
+  ════════════════════════════════════ -->
+  <div id="step-1" class="step">
+
+    <!-- Chargement -->
+    <div id="s1-loading" class="card" style="display:none">
+      <div class="card-sub"><span class="spinner"></span>Validation des données en cours...</div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="s1-progress"></div></div>
+    </div>
+
+    <!-- Table vide -->
+    <div id="s1-empty" class="card" style="display:none">
+      <span class="badge badge-warn">Table vide</span>
+      <div class="card-title">Aucune donnée dans JDP_2025</div>
+      <div class="card-sub">La table JDP_2025 ne contient aucune ligne pour votre session. Veuillez d'abord importer les données depuis SIFAC dans Grist avant de lancer ce widget.</div>
+      <div class="btn-row">
+        <button onclick="location.reload()">Réessayer</button>
+      </div>
+    </div>
+
+    <!-- Erreur exercice comptable -->
+    <div id="s1-err-exercice" class="card" style="display:none">
+      <span class="badge badge-err">Erreur — exercice comptable incorrect</span>
+      <div class="card-title">Les données ne correspondent pas à 2025</div>
+      <div class="card-sub">La matrice a détecté une valeur incorrecte dans la colonne <strong style="font-weight:500">exercice</strong>. Toutes les lignes doivent contenir <strong style="font-weight:500">2025</strong>.</div>
+      <div class="alert alert-err" id="s1-err-exercice-detail"></div>
+      <div class="card-sub" style="margin-top:.5rem">Vérifiez que vous avez bien utilisé la variante <strong style="font-weight:500">JUSTIF_2025</strong> lors de l'extraction SIFAC, et que vous n'avez pas ouvert ni modifié le fichier d'extraction.</div>
+      <div class="btn-row">
+        <button onclick="location.reload()">Recommencer avec les bonnes données</button>
+      </div>
+    </div>
+
+    <!-- Avertissement centre de coûts -->
+    <div id="s1-warn-cc" class="card" style="display:none">
+      <span class="badge badge-warn">Avertissement — centre de coûts</span>
+      <div class="card-title">Valeur de centre de coûts incohérente détectée</div>
+      <div class="card-sub">Un centre de coûts ne respecte pas le format attendu. Cela peut indiquer que le fichier d'extraction a été ouvert ou modifié avant import.</div>
+      <div class="alert alert-warn">
+        Les centres de coûts doivent être :<br>
+        · de 9 ou 10 caractères<br>
+        · de 8 caractères avec la 5ème lettre = <strong style="font-weight:500">L</strong><br>
+        · commencer par <strong style="font-weight:500">MSL</strong><br>
+        · ou appartenir à la liste : C11, C12…C75, COMMUN, INRAE
+      </div>
+      <div class="err-detail" id="s1-warn-cc-detail"></div>
+      <div class="alert alert-err" style="margin-top:.75rem">Les résultats créés par la matrice pourront être erronés si vous forcez l'injection.</div>
+      <div class="btn-row">
+        <button class="btn-warn" onclick="forcerInjection()">Forcer l'injection malgré l'avertissement</button>
+        <button onclick="location.reload()">Annuler et corriger les données</button>
+      </div>
+    </div>
+
+    <!-- Validation OK -->
+    <div id="s1-ok" class="card" style="display:none">
+      <span class="badge badge-ok">Validation réussie</span>
+      <div class="card-title">Données JDP 2025 conformes</div>
+      <div class="data-block" id="s1-ok-details"></div>
+      <div class="btn-row" style="margin-top:.75rem">
+        <button class="btn-primary" onclick="goStep(2)">Confirmer l'injection →</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════
+       ÉTAPE 3 — CONFIRMATION
+  ════════════════════════════════════ -->
+  <div id="step-2" class="step">
+    <div class="card">
+      <span class="badge badge-info">Confirmation requise</span>
+      <div class="card-title">Confirmez-vous l'injection de ce JDP 2025 ?</div>
+      <div class="card-sub">Vérifiez que les informations ci-dessous correspondent bien aux données que vous souhaitez justifier.</div>
+      <div class="data-block" id="s2-summary"></div>
+      <div class="alert alert-warn" style="margin-top:.75rem">S'il y a plusieurs PFi et CFi, seule la première ligne est affichée ici.</div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="confirmerInjection()">Oui, confirmer l'injection</button>
+        <button onclick="location.reload()">Non, annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       ÉTAPE 4 — RÉSULTAT
+  ════════════════════════════════════ -->
+  <div id="step-3" class="step">
+
+    <!-- Succès -->
+    <div id="s3-ok" class="card" style="display:none">
+      <span class="badge badge-ok">Injection validée</span>
+      <div class="card-title">JDP 2025 prêt pour la justification</div>
+      <div class="card-sub">Les données ont été vérifiées et confirmées. La matrice va maintenant traiter le Journal des Pièces 2026.</div>
+      <div class="data-block" id="s3-ok-details"></div>
+      <div class="sep"></div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="sendPrompt('Le JDP 2025 est validé. Quelles sont les prochaines étapes pour le JDP 2026 ?')">Passer au JDP 2026 ↗</button>
+      </div>
+    </div>
+
+    <!-- Erreur technique -->
+    <div id="s3-err" class="card" style="display:none">
+      <span class="badge badge-err">Erreur technique</span>
+      <div class="card-title">Une erreur est survenue</div>
+      <div id="s3-err-msg" class="card-sub"></div>
+      <div class="alert alert-err">Faites une capture d'écran et déposez un ticket Ariane via SIFAC (Espace Aide → Créer un ticket Ariane).</div>
+      <div class="btn-row">
+        <button onclick="location.reload()">Recommencer</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+const ANNEE = '2025';
+const TABLE = 'JDP_2025';
+
+const LISTE_OK_CC = ['C11','C12','C13','C14','C15','C21','C22','C23','C24','C28','C29','C30','C32','C34','C41','C42','C44','C45','C59','C75','COMMUN','INRAE','MSL'];
+
+let currentUser = null;
+let tableRows = [];
+let forceCC = false;
+
+function setStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  ['st0','st1','st2','st3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = 'st' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+}
+function goStep(n) { setStep(n); }
+function show(id) { document.getElementById(id).style.display = 'block'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+function valStr(v) { return (v === null || v === undefined) ? '' : String(v).trim(); }
+
+async function fetchUserRows() {
+  const t = await grist.docApi.fetchTable(TABLE);
+  const ids = t.id || [];
+  const emails = t.user_email || [];
+  const result = [];
+  ids.forEach((id, i) => {
+    if (emails[i] !== currentUser) return;
+    const rec = { id };
+    Object.keys(t).forEach(k => { rec[k] = t[k][i]; });
+    result.push(rec);
+  });
+  return result;
+}
+
+function validerExercice(rows) {
+  for (const row of rows) {
+    const v = valStr(row.exercice);
+    if (v !== '' && v !== ANNEE) {
+      return { ok: false, ligne: row.id, valeur: v };
+    }
+  }
+  return { ok: true };
+}
+
+function validerCentreCouts(rows) {
+  for (const row of rows) {
+    const raw = valStr(row.centre_couts);
+    if (raw === '') continue;
+    const v = raw.toUpperCase();
+    let ok = false;
+    if (v.startsWith('MSL')) ok = true;
+    if (!ok && LISTE_OK_CC.includes(v)) ok = true;
+    if (!ok && (v.length === 9 || v.length === 10)) ok = true;
+    if (!ok && v.length === 8 && v[4] === 'L') ok = true;
+    if (!ok) return { ok: false, ligne: row.id, valeur: raw };
+  }
+  return { ok: true };
+}
+
+function buildSummary(rows) {
+  const first = rows[0] || {};
+  return {
+    count: rows.length,
+    pfi: valStr(first.pfi),
+    pfi_libelle: valStr(first.pfi_libelle),
+    cfi: valStr(first.cfi),
+    cfi_libelle: valStr(first.cfi_libelle),
+    exercice: valStr(first.exercice)
+  };
+}
+
+function renderDataBlock(containerId, items) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  items.forEach(({ label, value, pill }) => {
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    row.innerHTML = `<span class="data-label">${label}</span>` +
+      (pill
+        ? `<span class="pill ${pill.cls || ''}">${pill.text}</span>`
+        : `<span style="font-size:13px;font-weight:500">${value || '—'}</span>`);
+    el.appendChild(row);
+  });
+}
+
+async function startValidation() {
+  document.getElementById('btn-start').disabled = true;
+  setStep(1);
+  show('s1-loading');
+
+  try {
+    tableRows = await fetchUserRows();
+  } catch(e) {
+    hide('s1-loading');
+    showTechError('Impossible de lire la table ' + TABLE + ' : ' + e.message);
+    return;
+  }
+
+  // Simuler une progression visuelle
+  animateProgress('s1-progress', 0, 40, 300);
+
+  // Vérif vide
+  const nonVides = tableRows.filter(r => valStr(r.exercice) !== '');
+  if (tableRows.length === 0 || nonVides.length === 0) {
+    hide('s1-loading');
+    show('s1-empty');
+    return;
+  }
+
+  animateProgress('s1-progress', 40, 70, 300);
+
+  // Vérif exercice comptable
+  const checkEx = validerExercice(tableRows);
+  if (!checkEx.ok) {
+    hide('s1-loading');
+    document.getElementById('s1-err-exercice-detail').textContent =
+      `Ligne concernée (id Grist : ${checkEx.ligne}) — valeur trouvée : "${checkEx.valeur}" au lieu de "${ANNEE}"`;
+    show('s1-err-exercice');
+    return;
+  }
+
+  animateProgress('s1-progress', 70, 95, 300);
+
+  // Vérif centre de coûts
+  const checkCC = validerCentreCouts(tableRows);
+  if (!checkCC.ok && !forceCC) {
+    hide('s1-loading');
+    document.getElementById('s1-warn-cc-detail').textContent =
+      `Ligne concernée (id Grist : ${checkCC.ligne}) — centre de coûts : "${checkCC.valeur}"`;
+    show('s1-warn-cc');
+    return;
+  }
+
+  animateProgress('s1-progress', 95, 100, 200);
+
+  setTimeout(() => {
+    hide('s1-loading');
+    const sum = buildSummary(tableRows);
+    renderDataBlock('s1-ok-details', [
+      { label: 'Nombre de lignes', pill: { text: sum.count + ' ligne' + (sum.count > 1 ? 's' : ''), cls: 'pill-ok' } },
+      { label: 'Exercice comptable', value: sum.exercice },
+      { label: 'Programme de financement (PFi)', value: sum.pfi + (sum.pfi_libelle ? ' — ' + sum.pfi_libelle : '') },
+      { label: 'Centre financier (CFi)', value: sum.cfi + (sum.cfi_libelle ? ' — ' + sum.cfi_libelle : '') },
+      { label: 'Centre de coûts (1ère ligne)', value: valStr((tableRows[0] || {}).centre_couts) },
+    ]);
+    show('s1-ok');
+    buildConfirmation();
+  }, 250);
+}
+
+function forcerInjection() {
+  forceCC = true;
+  hide('s1-warn-cc');
+  show('s1-loading');
+  animateProgress('s1-progress', 0, 100, 400);
+  setTimeout(() => {
+    hide('s1-loading');
+    const sum = buildSummary(tableRows);
+    renderDataBlock('s1-ok-details', [
+      { label: 'Nombre de lignes', pill: { text: sum.count + ' ligne' + (sum.count > 1 ? 's' : ''), cls: 'pill-ok' } },
+      { label: 'Exercice comptable', value: sum.exercice },
+      { label: 'Programme de financement (PFi)', value: sum.pfi + (sum.pfi_libelle ? ' — ' + sum.pfi_libelle : '') },
+      { label: 'Centre financier (CFi)', value: sum.cfi + (sum.cfi_libelle ? ' — ' + sum.cfi_libelle : '') },
+      { label: 'Centre de coûts (1ère ligne) ⚠', value: valStr((tableRows[0] || {}).centre_couts) },
+    ]);
+    show('s1-ok');
+    buildConfirmation();
+  }, 450);
+}
+
+function buildConfirmation() {
+  const sum = buildSummary(tableRows);
+  renderDataBlock('s2-summary', [
+    { label: 'Nombre de lignes', pill: { text: sum.count + ' ligne' + (sum.count > 1 ? 's' : '') } },
+    { label: 'Exercice comptable', value: sum.exercice },
+    { label: 'Programme de financement (PFi)', value: sum.pfi + (sum.pfi_libelle ? ' — ' + sum.pfi_libelle : '') },
+    { label: 'Centre financier (CFi)', value: sum.cfi + (sum.cfi_libelle ? ' — ' + sum.cfi_libelle : '') },
+    { label: 'Centre de coûts forcé', value: forceCC ? 'Oui — résultats potentiellement erronés' : 'Non' },
+  ]);
+}
+
+async function confirmerInjection() {
+  setStep(3);
+  try {
+    // Dans Grist, les données sont déjà dans la table — la "confirmation" marque
+    // simplement que l'utilisateur a validé la présence des données.
+    // On écrit un flag de validation dans une table de config si disponible.
+    try {
+      await grist.docApi.applyUserActions([['UpdateRecord', 'CONFIG', null, {
+        key: 'jdp2025_valide_' + currentUser,
+        value: 'true',
+        updated_at: new Date().toISOString()
+      }]]);
+    } catch(_) {
+      // Table CONFIG optionnelle — on continue sans erreur si elle n'existe pas
+    }
+
+    const sum = buildSummary(tableRows);
+    renderDataBlock('s3-ok-details', [
+      { label: 'Lignes validées', pill: { text: sum.count + ' ligne' + (sum.count > 1 ? 's' : ''), cls: 'pill-ok' } },
+      { label: 'Programme de financement (PFi)', value: sum.pfi + (sum.pfi_libelle ? ' — ' + sum.pfi_libelle : '') },
+      { label: 'Centre financier (CFi)', value: sum.cfi + (sum.cfi_libelle ? ' — ' + sum.cfi_libelle : '') },
+      { label: 'Exercice comptable', value: sum.exercice },
+      { label: 'Étape suivante', value: 'Injection du Journal des Pièces 2026' },
+    ]);
+    show('s3-ok');
+  } catch(e) {
+    showTechError('Erreur lors de la confirmation : ' + e.message);
+  }
+}
+
+function showTechError(msg) {
+  document.getElementById('s3-err-msg').textContent = msg;
+  show('s3-err');
+  setStep(3);
+}
+
+function animateProgress(id, from, to, duration) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = performance.now();
+  function step(now) {
+    const p = Math.min((now - start) / duration, 1);
+    el.style.width = (from + (to - from) * p) + '%';
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+async function boot() {
+  try {
+    grist.ready({ requiredAccess: 'full' });
+    const user = await grist.getUser();
+    currentUser = user.email || user.name || ('session_' + Math.random().toString(36).slice(2, 7));
+  } catch(e) {
+    currentUser = 'utilisateur_local';
+  }
+  document.getElementById('s0-user').textContent = currentUser;
+
+  try {
+    const rows = await fetchUserRows();
+    document.getElementById('s0-count').textContent =
+      rows.length > 0 ? rows.length + ' ligne(s) présente(s)' : 'Vide';
+  } catch(e) {
+    document.getElementById('s0-count').textContent = 'Non accessible';
+    document.getElementById('s0-err').textContent = 'Impossible de lire la table JDP_2025 : ' + e.message;
+    show('s0-err');
+  }
+
+  document.getElementById('btn-start').disabled = false;
+}
+
+boot();
+</script>
