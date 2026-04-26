@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matrice de justification — INRAE</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    /* ══════════════════════════════════════════════════════
+       BASE
+    ══════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px; color: #1a1a1a; background: #f4f6f8; line-height: 1.6;
+    }
+    a { text-decoration: none; }
+
+    /* ══════════════════════════════════════════════════════
+       LAYOUT : sidebar fixe + contenu scrollable
+    ══════════════════════════════════════════════════════ */
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: #1a237e;
+      color: #fff;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-header {
+      padding: 16px 14px 12px;
+      border-bottom: 1px solid #283593;
+    }
+    .sidebar-logo {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #9fa8da;
+      margin-bottom: 3px;
+    }
+    .sidebar-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.4;
+    }
+
+    /* Navigation des étapes */
+    .nav-list { padding: 10px 0; flex: 1; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: #9fa8da;
+      cursor: pointer;
+      transition: background .12s, color .12s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { background: #283593; color: #fff; }
+    .nav-item.active {
+      background: #283593;
+      color: #fff;
+      border-left-color: #5c6bc0;
+    }
+    .nav-item.valide  { color: #a5d6a7; }
+    .nav-item.valide:hover  { color: #c8e6c9; }
+    .nav-item.bloque  { opacity: .45; cursor: default; }
+    .nav-item.bloque:hover { background: transparent; }
+    .nav-num {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #283593;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; flex-shrink: 0;
+    }
+    .nav-item.valide .nav-num  { background: #2e7d32; color: #fff; }
+    .nav-item.active .nav-num  { background: #5c6bc0; color: #fff; }
+    .nav-item.en_cours .nav-num { background: #1565c0; color: #fff; }
+
+    /* Barre de progression dans la sidebar */
+    .sidebar-progress {
+      padding: 10px 14px 14px;
+      border-top: 1px solid #283593;
+    }
+    .sidebar-progress-label {
+      font-size: 10px; color: #9fa8da; margin-bottom: 5px;
+    }
+    .sidebar-progress-wrap {
+      background: #283593; border-radius: 4px; height: 4px; overflow: hidden;
+    }
+    .sidebar-progress-bar {
+      height: 100%; background: #5c6bc0; transition: width .5s;
+    }
+    .sidebar-progress-pct {
+      font-size: 10px; color: #9fa8da; text-align: right; margin-top: 3px;
+    }
+
+    /* ── Contenu principal ── */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 1.5rem 3rem;
+      max-width: 760px;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       SECTIONS (une par étape)
+    ══════════════════════════════════════════════════════ */
+    .section {
+      margin-bottom: 2rem;
+      scroll-margin-top: 16px; /* espace pour l'ancre */
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+    .section-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #666; flex-shrink: 0;
+    }
+    .section-num.valide   { background: #2e7d32; color: #fff; }
+    .section-num.active   { background: #1565c0; color: #fff; }
+    .section-num.en_cours { background: #1565c0; color: #fff; }
+    .section-num.bloque   { background: #e0e0e0; color: #bbb; }
+    .section-title {
+      font-size: 16px; font-weight: 700; color: #1a1a1a;
+    }
+    .section-title.bloque { color: #bbb; }
+
+    /* Bloquer visuellement une section non accessible */
+    .section-body.bloque {
+      pointer-events: none;
+      opacity: .4;
+    }
+    .section-blocked-msg {
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #999;
+      display: none;
+    }
+    .section-blocked-msg.visible { display: block; }
+
+    /* Séparateur entre sections */
+    .section-sep {
+      border: none;
+      border-top: 1px dashed #e0e0e0;
+      margin: 0 0 2rem;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       COMPOSANTS PARTAGÉS
+    ══════════════════════════════════════════════════════ */
+    .card {
+      background: #fff; border: 1px solid #e0e0e0;
+      border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;
+    }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 0.35rem; }
+    .card-sub   { font-size: 13px; color: #555; line-height: 1.65; margin-bottom: 1rem; }
+
+    .badge {
+      display: inline-block; font-size: 11px; padding: 3px 10px;
+      border-radius: 20px; margin-bottom: 0.75rem; font-weight: 500;
+    }
+    .badge-info { background: #e3f2fd; color: #1565c0; }
+    .badge-warn { background: #fff8e1; color: #e65100; }
+    .badge-ok   { background: #e6f4ea; color: #2e7d32; }
+    .badge-err  { background: #fce4ec; color: #b71c1c; }
+
+    .kv { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; font-size: 13px; }
+    .kv-label { color: #666; min-width: 220px; flex-shrink: 0; }
+    .kv-val   { font-weight: 600; word-break: break-word; }
+
+    .sep { border-top: 1px solid #e0e0e0; margin: 1rem 0; }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+    button {
+      font-size: 13px; padding: 7px 16px; border-radius: 6px;
+      border: 1px solid #ccc; background: #fff; color: #1a1a1a;
+      cursor: pointer; transition: background .15s;
+    }
+    button:hover    { background: #f5f5f5; }
+    button:active   { transform: scale(.98); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: #1565c0; color: #fff; border-color: #1565c0; }
+    .btn-primary:hover { background: #1251a0; }
+    .btn-danger  { background: #b71c1c; color: #fff; border-color: #b71c1c; }
+    .btn-danger:hover  { background: #9a1515; }
+    .btn-warn    { background: #e65100; color: #fff; border-color: #e65100; }
+    .btn-warn:hover    { background: #bf360c; }
+
+    .alert {
+      border-radius: 6px; padding: 10px 14px; font-size: 13px;
+      margin-bottom: 0.75rem; border-left: 3px solid; line-height: 1.6;
+    }
+    .alert-info { background: #e3f2fd; color: #1565c0; border-color: #1565c0; }
+    .alert-warn { background: #fff8e1; color: #e65100; border-color: #e65100; }
+    .alert-err  { background: #fce4ec; color: #b71c1c; border-color: #b71c1c; }
+    .alert-ok   { background: #e6f4ea; color: #2e7d32; border-color: #2e7d32; }
+
+    .data-block {
+      border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; margin-top: 0.75rem;
+    }
+    .data-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 12px; font-size: 12px; border-bottom: 1px solid #e0e0e0;
+    }
+    .data-row:last-child { border-bottom: none; }
+    .data-row:nth-child(even) { background: #fafafa; }
+    .data-label { color: #666; min-width: 180px; }
+    .pill {
+      font-size: 11px; padding: 2px 8px; border-radius: 20px;
+      background: #e3f2fd; color: #1565c0; white-space: nowrap; font-weight: 500;
+    }
+    .pill-ok  { background: #e6f4ea; color: #2e7d32; }
+    .pill-err { background: #fce4ec; color: #b71c1c; }
+
+    .err-detail {
+      background: #fafafa; border-radius: 6px; padding: 10px 14px;
+      font-size: 12px; font-family: monospace; margin-top: 0.5rem;
+      border: 1px solid #e0e0e0;
+    }
+
+    .spinner {
+      display: inline-block; width: 13px; height: 13px;
+      border: 2px solid #ccc; border-top-color: #1565c0;
+      border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-wrap { background: #e0e0e0; border-radius: 4px; height: 5px; overflow: hidden; margin-top: .75rem; }
+    .progress-bar  { height: 100%; background: #1565c0; width: 0%; transition: width .3s; }
+
+    .step { display: none; }
+    .step.active { display: block; }
+
+    .stepper {
+      display: flex; margin-bottom: 1.25rem;
+      border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;
+    }
+    .st {
+      flex: 1; text-align: center; padding: 7px 4px; font-size: 11px;
+      color: #888; background: #f5f5f5; border-right: 1px solid #e0e0e0;
+    }
+    .st:last-child { border-right: none; }
+    .st.done   { background: #e6f4ea; color: #2e7d32; }
+    .st.active { background: #e3f2fd; color: #1565c0; font-weight: 600; }
+
+    /* Bouton "passer à l'étape suivante" en bas de chaque section complétée */
+    .next-btn-wrap { margin-top: .5rem; }
+    .btn-next {
+      background: #1a237e; color: #fff; border-color: #1a237e;
+      font-size: 13px; padding: 7px 16px; border-radius: 6px;
+      border: none; cursor: pointer; transition: background .15s;
+    }
+    .btn-next:hover { background: #283593; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ══════════════════════════════════════════════════════
+       SIDEBAR — navigation + état des étapes
+  ══════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">INRAE</div>
+      <div class="sidebar-title">Matrice de<br>justification</div>
+    </div>
+
+    <nav class="nav-list" id="nav-list">
+      <!-- Généré par JS -->
+    </nav>
+
+    <div class="sidebar-progress">
+      <div class="sidebar-progress-label">Progression globale</div>
+      <div class="sidebar-progress-wrap">
+        <div class="sidebar-progress-bar" id="sb-progress-bar" style="width:0%"></div>
+      </div>
+      <div class="sidebar-progress-pct" id="sb-progress-pct">0 %</div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════
+       CONTENU PRINCIPAL
+  ══════════════════════════════════════════════════════ -->
+  <main class="main" id="main">
+
+    <!-- ────────────────────────────────────────────────
+         SECTION 1 — LANCEMENT
+    ──────────────────────────────────────────────── -->
+    <section class="section" id="section-lancement">
+      <div class="section-header">
+        <div class="section-num" id="snum-lancement">1</div>
+        <div class="section-title" id="stitle-lancement">Lancement de la matrice</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-lancement">
+        Cette étape sera accessible dès que les étapes précédentes seront complétées.
+      </div>
+      <div class="section-body" id="sbody-lancement">
+
+        <div class="stepper">
+          <div class="st active" id="l-st0">1 · Init</div>
+          <div class="st" id="l-st1">2 · Justif. préc.</div>
+          <div class="st" id="l-st2">3 · JDP 2025</div>
+          <div class="st" id="l-st3">4 · Résultat</div>
+        </div>
+
+        <div id="l-step-0" class="step active">
+          <div class="card">
+            <div class="card-title">Lancement de la matrice de justification</div>
+            <div class="card-sub">Le widget vérifie l'état de vos tables et prépare la session. La table <strong>PIECES_JUSTIF</strong> sera vidée au lancement.</div>
+            <div class="kv"><span class="kv-label">Table PIECES_JUSTIF</span><span class="kv-val" id="l-s0-pj"><span class="spinner"></span></span></div>
+            <div class="kv"><span class="kv-label">Table JDP_2025</span><span class="kv-val" id="l-s0-jdp">—</span></div>
+            <div class="kv"><span class="kv-label">Table CONFIG</span><span class="kv-val" id="l-s0-config">—</span></div>
+            <div id="l-s0-err" class="alert alert-err" style="display:none"></div>
+            <div class="btn-row">
+              <button class="btn-primary" id="l-btn-launch" onclick="lancement.lancerAnalyse()" disabled>Lancer l'analyse</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="l-step-1" class="step">
+          <div id="l-s1-vide" class="card" style="display:none">
+            <span class="badge badge-info">Aucune justification précédente</span>
+            <div class="card-title">PIECES_JUSTIF est vide</div>
+            <div class="card-sub">Toutes les lignes potentiellement à justifier seront incluses dans la justification que la matrice va créer.</div>
+            <div class="btn-row"><button class="btn-primary" onclick="lancement.checkJDP25()">Continuer →</button></div>
+          </div>
+          <div id="l-s1-present" class="card" style="display:none">
+            <span class="badge badge-warn" id="l-s1-badge-count"></span>
+            <div class="card-title">Justifications précédentes détectées</div>
+            <div class="card-sub">Les lignes ci-dessous sont présentes dans <strong>PIECES_JUSTIF</strong>. Elles seront exclues de la justification à créer.</div>
+            <div class="data-block" id="l-s1-data-list"></div>
+            <div class="kv" style="margin-top:.75rem"><span class="kv-label">Total lignes</span><span class="kv-val" id="l-s1-total">—</span></div>
+            <div class="alert alert-warn" style="margin-top:.75rem">Si ces données ne correspondent pas à ce que vous souhaitez, effacez-les.</div>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="lancement.checkJDP25()">Utiliser ces justifications →</button>
+              <button class="btn-danger" onclick="lancement.effacerPJ()">Effacer et repartir</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="l-step-2" class="step">
+          <div id="l-s2-loading" class="card" style="display:none"><div class="card-sub"><span class="spinner"></span>Vérification JDP_2025…</div></div>
+          <div id="l-s2-filled" class="card" style="display:none">
+            <span class="badge badge-warn">Données JDP 2025 déjà présentes</span>
+            <div class="card-title">Journal des Pièces 2025 détecté</div>
+            <div class="card-sub">Vérifiez qu'elles correspondent à ce que vous souhaitez justifier.</div>
+            <div class="data-block" id="l-s2-data-list"></div>
+            <div class="kv" style="margin-top:.75rem"><span class="kv-label">Total lignes</span><span class="kv-val" id="l-s2-total">—</span></div>
+            <div class="alert alert-warn" style="margin-top:.75rem">Seule la première ligne de chaque PFi est affichée.</div>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="lancement.confirmerJDP25()">Oui, données correctes → JDP 2026</button>
+              <button class="btn-danger" onclick="lancement.effacerJDP25()">Non, effacer</button>
+            </div>
+          </div>
+          <div id="l-s2-empty" class="card" style="display:none">
+            <span class="badge badge-info">JDP 2025 vide</span>
+            <div class="card-title">Aucune donnée JDP 2025</div>
+            <div class="card-sub">Souhaitez-vous inclure les pièces payées en 2025 ?</div>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="lancement.versJDP25()">Oui, injecter le JDP 2025</button>
+              <button onclick="lancement.versJDP26()">Non, passer au JDP 2026</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="l-step-3" class="step">
+          <div id="l-s3-jdp25" class="card" style="display:none">
+            <span class="badge badge-ok">Matrice lancée</span>
+            <div class="card-title">Prêt pour la validation JDP 2025</div>
+            <div class="data-block" id="l-s3-details-25"></div>
+            <div class="next-btn-wrap" style="margin-top:1rem">
+              <button class="btn-next" onclick="scrollToSection('section-jdp2025')">↓ Aller à : Validation JDP 2025</button>
+            </div>
+          </div>
+          <div id="l-s3-jdp26" class="card" style="display:none">
+            <span class="badge badge-ok">Matrice lancée</span>
+            <div class="card-title">Prêt pour la validation JDP 2026</div>
+            <div class="data-block" id="l-s3-details-26"></div>
+            <div class="next-btn-wrap" style="margin-top:1rem">
+              <button class="btn-next" onclick="scrollToSection('section-jdp2026')">↓ Aller à : Validation JDP 2026</button>
+            </div>
+          </div>
+          <div id="l-s3-err" class="card" style="display:none">
+            <span class="badge badge-err">Erreur technique</span>
+            <div class="card-title">Une erreur est survenue</div>
+            <div id="l-s3-err-msg" class="card-sub"></div>
+            <div class="alert alert-err">Faites une capture d'écran et déposez un ticket Ariane via SIFAC.</div>
+            <div class="btn-row"><button onclick="location.reload()">Recommencer</button></div>
+          </div>
+        </div>
+
+      </div><!-- /section-body lancement -->
+    </section>
+    <hr class="section-sep">
+
+    <!-- ────────────────────────────────────────────────
+         SECTION 2 — JDP 2025
+    ──────────────────────────────────────────────── -->
+    <section class="section" id="section-jdp2025">
+      <div class="section-header">
+        <div class="section-num" id="snum-jdp2025">2</div>
+        <div class="section-title" id="stitle-jdp2025">Validation JDP 2025</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-jdp2025">
+        Veuillez d'abord compléter l'étape <strong>Lancement de la matrice</strong> ci-dessus.
+      </div>
+      <div class="section-body" id="sbody-jdp2025">
+
+        <div class="stepper">
+          <div class="st active" id="j25-st0">1 · Vérification</div>
+          <div class="st" id="j25-st1">2 · Validation</div>
+          <div class="st" id="j25-st2">3 · Confirmation</div>
+          <div class="st" id="j25-st3">4 · Résultat</div>
+        </div>
+
+        <div id="j25-step-0" class="step active">
+          <div class="card">
+            <div class="card-title">Validation du Journal des Pièces 2025</div>
+            <div class="card-sub">Le widget va vérifier la conformité des données de la table <strong>JDP_2025</strong>.</div>
+            <div class="kv"><span class="kv-label">Lignes dans JDP_2025</span><span class="kv-val" id="j25-s0-count"><span class="spinner"></span></span></div>
+            <div id="j25-s0-err" class="alert alert-err" style="display:none"></div>
+            <div class="btn-row">
+              <button class="btn-primary" id="j25-btn-start" onclick="jdp25.startValidation()" disabled>Lancer la vérification</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="j25-step-1" class="step">
+          <div id="j25-s1-loading" class="card" style="display:none">
+            <div class="card-sub"><span class="spinner"></span>Validation en cours…</div>
+            <div class="progress-wrap"><div class="progress-bar" id="j25-s1-progress"></div></div>
+          </div>
+          <div id="j25-s1-empty" class="card" style="display:none">
+            <span class="badge badge-warn">Table vide</span>
+            <div class="card-title">Aucune donnée dans JDP_2025</div>
+            <div class="card-sub">Importez d'abord les données JDP 2025 depuis SIFAC dans Grist, puis relancez.</div>
+            <div class="btn-row"><button onclick="jdp25.reset()">Réessayer</button></div>
+          </div>
+          <div id="j25-s1-err-exercice" class="card" style="display:none">
+            <span class="badge badge-err">Erreur — exercice comptable incorrect</span>
+            <div class="card-title">Les données ne correspondent pas à 2025</div>
+            <div class="card-sub">Toutes les lignes de la colonne <strong>exercice</strong> doivent contenir <strong>2025</strong>.</div>
+            <div class="alert alert-err" id="j25-s1-err-exercice-detail"></div>
+            <div class="card-sub" style="margin-top:.5rem">Vérifiez que vous avez utilisé la variante <strong>JUSTIF_2025</strong> lors de l'extraction SIFAC.</div>
+            <div class="btn-row"><button onclick="jdp25.reset()">Recommencer</button></div>
+          </div>
+          <div id="j25-s1-warn-cc" class="card" style="display:none">
+            <span class="badge badge-warn">Avertissement — centre de coûts</span>
+            <div class="card-title">Valeur de centre de coûts non conforme</div>
+            <div class="alert alert-warn">Formats valides : 9 ou 10 caractères · 8 caractères avec 5ème lettre = L · commençant par MSL · ou liste : C11 à C75, COMMUN, INRAE</div>
+            <div class="err-detail" id="j25-s1-warn-cc-detail"></div>
+            <div class="alert alert-err" style="margin-top:.75rem">Les résultats de la matrice pourront être erronés si vous forcez.</div>
+            <div class="btn-row">
+              <button class="btn-warn" onclick="jdp25.forcerValidation()">Forcer malgré l'avertissement</button>
+              <button onclick="jdp25.reset()">Annuler et corriger</button>
+            </div>
+          </div>
+          <div id="j25-s1-ok" class="card" style="display:none">
+            <span class="badge badge-ok">Validation réussie</span>
+            <div class="card-title">Données JDP 2025 conformes</div>
+            <div class="data-block" id="j25-s1-ok-details"></div>
+            <div class="btn-row" style="margin-top:.75rem">
+              <button class="btn-primary" onclick="jdp25.goStep(2)">Confirmer →</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="j25-step-2" class="step">
+          <div class="card">
+            <span class="badge badge-info">Confirmation requise</span>
+            <div class="card-title">Confirmez-vous les données JDP 2025 ?</div>
+            <div class="data-block" id="j25-s2-summary"></div>
+            <div class="alert alert-warn" style="margin-top:.75rem">S'il y a plusieurs PFi et CFi, seule la première ligne est affichée ici.</div>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="jdp25.confirmerValidation()">Oui, confirmer</button>
+              <button onclick="jdp25.reset()">Non, annuler</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="j25-step-3" class="step">
+          <div id="j25-s3-ok" class="card" style="display:none">
+            <span class="badge badge-ok">JDP 2025 validé</span>
+            <div class="card-title">Journal des Pièces 2025 prêt</div>
+            <div class="data-block" id="j25-s3-ok-details"></div>
+            <div class="next-btn-wrap" style="margin-top:1rem">
+              <button class="btn-next" onclick="scrollToSection('section-jdp2026')">↓ Aller à : Validation JDP 2026</button>
+            </div>
+          </div>
+          <div id="j25-s3-err" class="card" style="display:none">
+            <span class="badge badge-err">Erreur technique</span>
+            <div class="card-title">Une erreur est survenue</div>
+            <div id="j25-s3-err-msg" class="card-sub"></div>
+            <div class="alert alert-err">Faites une capture d'écran et déposez un ticket Ariane via SIFAC.</div>
+            <div class="btn-row"><button onclick="jdp25.reset()">Recommencer</button></div>
+          </div>
+        </div>
+
+      </div><!-- /section-body jdp2025 -->
+    </section>
+    <hr class="section-sep">
+
+    <!-- ────────────────────────────────────────────────
+         SECTION 3 — JDP 2026
+    ──────────────────────────────────────────────── -->
+    <section class="section" id="section-jdp2026">
+      <div class="section-header">
+        <div class="section-num" id="snum-jdp2026">3</div>
+        <div class="section-title" id="stitle-jdp2026">Validation JDP 2026</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-jdp2026">
+        Veuillez d'abord compléter l'étape <strong>Validation JDP 2025</strong> ci-dessus.
+      </div>
+      <div class="section-body" id="sbody-jdp2026">
+
+        <div class="stepper">
+          <div class="st active" id="j26-st0">1 · Vérification</div>
+          <div class="st" id="j26-st1">2 · Validation</div>
+          <div class="st" id="j26-st2">3 · Confirmation</div>
+          <div class="st" id="j26-st3">4 · Résultat</div>
+        </div>
+
+        <div id="j26-step-0" class="step active">
+          <div class="card">
+            <div class="card-title">Validation du Journal des Pièces 2026</div>
+            <div class="card-sub">Le widget va vérifier la conformité des données de la table <strong>JDP_2026</strong>.</div>
+            <div class="kv"><span class="kv-label">Lignes dans JDP_2026</span><span class="kv-val" id="j26-s0-count"><span class="spinner"></span></span></div>
+            <div id="j26-s0-err" class="alert alert-err" style="display:none"></div>
+            <div class="btn-row">
+              <button class="btn-primary" id="j26-btn-start" onclick="jdp26.startValidation()" disabled>Lancer la vérification</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="j26-step-1" class="step">
+          <div id="j26-s1-loading" class="card" style="display:none">
+            <div class="card-sub"><span class="spinner"></span>Validation en cours…</div>
+            <div class="progress-wrap"><div class="progress-bar" id="j26-s1-progress"></div></div>
+          </div>
+          <div id="j26-s1-empty" class="card" style="display:none">
+            <span class="badge badge-warn">Table vide</span>
+            <div class="card-title">Aucune donnée dans JDP_2026</div>
+            <div class="card-sub">Importez d'abord les données JDP 2026 depuis SIFAC dans Grist, puis relancez.</div>
+            <div class="btn-row"><button onclick="jdp26.reset()">Réessayer</button></div>
+          </div>
+          <div id="j26-s1-err-exercice" class="card" style="display:none">
+            <span class="badge badge-err">Erreur — exercice comptable incorrect</span>
+            <div class="card-title">Les données ne correspondent pas à 2026</div>
+            <div class="card-sub">Toutes les lignes de la colonne <strong>exercice</strong> doivent contenir <strong>2026</strong>.</div>
+            <div class="alert alert-err" id="j26-s1-err-exercice-detail"></div>
+            <div class="card-sub" style="margin-top:.5rem">Vérifiez que vous avez utilisé la variante <strong>JUSTIF_2026</strong> lors de l'extraction SIFAC.</div>
+            <div class="btn-row"><button onclick="jdp26.reset()">Recommencer</button></div>
+          </div>
+          <div id="j26-s1-warn-cc" class="card" style="display:none">
+            <span class="badge badge-warn">Avertissement — centre de coûts</span>
+            <div class="card-title">Valeur de centre de coûts non conforme</div>
+            <div class="alert alert-warn">Formats valides : 9 ou 10 caractères · 8 caractères avec 5ème lettre = L · commençant par MSL · ou liste : C11 à C75, COMMUN, INRAE</div>
+            <div class="err-detail" id="j26-s1-warn-cc-detail"></div>
+            <div class="alert alert-err" style="margin-top:.75rem">Les résultats de la matrice pourront être erronés si vous forcez.</div>
+            <div class="btn-row">
+              <button class="btn-warn" onclick="jdp26.forcerValidation()">Forcer malgré l'avertissement</button>
+              <button onclick="jdp26.reset()">Annuler et corriger</button>
+            </div>
+          </div>
+          <div id="j26-s1-ok" class="card" style="display:none">
+            <span class="badge badge-ok">Validation réussie</span>
+            <div class="card-title">Données JDP 2026 conformes</div>
+            <div class="data-block" id="j26-s1-ok-details"></div>
+            <div class="btn-row" style="margin-top:.75rem">
+              <button class="btn-primary" onclick="jdp26.goStep(2)">Confirmer →</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="j26-step-2" class="step">
+          <div class="card">
+            <span class="badge badge-info">Confirmation requise</span>
+            <div class="card-title">Confirmez-vous les données JDP 2026 ?</div>
+            <div class="data-block" id="j26-s2-summary"></div>
+            <div class="alert alert-warn" style="margin-top:.75rem">S'il y a plusieurs PFi et CFi, seule la première ligne est affichée ici.</div>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="jdp26.confirmerValidation()">Oui, confirmer</button>
+              <button onclick="jdp26.reset()">Non, annuler</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="j26-step-3" class="step">
+          <div id="j26-s3-ok" class="card" style="display:none">
+            <span class="badge badge-ok">JDP 2026 validé</span>
+            <div class="card-title">Journal des Pièces 2026 prêt</div>
+            <div class="data-block" id="j26-s3-ok-details"></div>
+            <div class="next-btn-wrap" style="margin-top:1rem">
+              <button class="btn-next" onclick="scrollToSection('section-missions')">↓ Aller à : Import Missions</button>
+            </div>
+          </div>
+          <div id="j26-s3-err" class="card" style="display:none">
+            <span class="badge badge-err">Erreur technique</span>
+            <div class="card-title">Une erreur est survenue</div>
+            <div id="j26-s3-err-msg" class="card-sub"></div>
+            <div class="alert alert-err">Faites une capture d'écran et déposez un ticket Ariane via SIFAC.</div>
+            <div class="btn-row"><button onclick="jdp26.reset()">Recommencer</button></div>
+          </div>
+        </div>
+
+      </div><!-- /section-body jdp2026 -->
+    </section>
+    <hr class="section-sep">
+
+    <!-- ────────────────────────────────────────────────
+         SECTIONS 4-11 — À VENIR
+         (placeholders, seront remplacés par les vrais widgets)
+    ──────────────────────────────────────────────── -->
+    <section class="section" id="section-missions">
+      <div class="section-header">
+        <div class="section-num" id="snum-missions">4</div>
+        <div class="section-title" id="stitle-missions">Import Missions</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-missions">Veuillez d'abord compléter l'étape <strong>Validation JDP 2026</strong>.</div>
+      <div class="section-body" id="sbody-missions">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+    <hr class="section-sep">
+
+    <section class="section" id="section-pi">
+      <div class="section-header">
+        <div class="section-num" id="snum-pi">5</div>
+        <div class="section-title" id="stitle-pi">Import Prestations internes</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-pi">Veuillez d'abord compléter l'étape <strong>Import Missions</strong>.</div>
+      <div class="section-body" id="sbody-pi">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+    <hr class="section-sep">
+
+    <section class="section" id="section-cda">
+      <div class="section-header">
+        <div class="section-num" id="snum-cda">6</div>
+        <div class="section-title" id="stitle-cda">Import Commandes d'achat</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-cda">Veuillez d'abord compléter l'étape précédente.</div>
+      <div class="section-body" id="sbody-cda">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+    <hr class="section-sep">
+
+    <section class="section" id="section-sf">
+      <div class="section-header">
+        <div class="section-num" id="snum-sf">7</div>
+        <div class="section-title" id="stitle-sf">Import Services faits</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-sf">Veuillez d'abord compléter l'étape précédente.</div>
+      <div class="section-body" id="sbody-sf">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+    <hr class="section-sep">
+
+    <section class="section" id="section-factures">
+      <div class="section-header">
+        <div class="section-num" id="snum-factures">8</div>
+        <div class="section-title" id="stitle-factures">Import Factures</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-factures">Veuillez d'abord compléter l'étape précédente.</div>
+      <div class="section-body" id="sbody-factures">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+    <hr class="section-sep">
+
+    <section class="section" id="section-rappro">
+      <div class="section-header">
+        <div class="section-num" id="snum-rappro">9</div>
+        <div class="section-title" id="stitle-rappro">Import Rapprochement</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-rappro">Veuillez d'abord compléter l'étape précédente.</div>
+      <div class="section-body" id="sbody-rappro">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+    <hr class="section-sep">
+
+    <section class="section" id="section-export">
+      <div class="section-header">
+        <div class="section-num" id="snum-export">10</div>
+        <div class="section-title" id="stitle-export">Export SIFAC</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-export">Veuillez d'abord compléter l'étape précédente.</div>
+      <div class="section-body" id="sbody-export">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+    <hr class="section-sep">
+
+    <section class="section" id="section-nettoyage">
+      <div class="section-header">
+        <div class="section-num" id="snum-nettoyage">11</div>
+        <div class="section-title" id="stitle-nettoyage">Nettoyage</div>
+      </div>
+      <div class="section-blocked-msg" id="sblock-nettoyage">Veuillez d'abord compléter l'étape précédente.</div>
+      <div class="section-body" id="sbody-nettoyage">
+        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
+      </div>
+    </section>
+
+  </main><!-- /.main -->
+
+</div><!-- /.layout -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   CONFIGURATION DES ÉTAPES
+══════════════════════════════════════════════════════════════════ */
+const ETAPES = [
+  { key: 'lancement', num: 1, titre: 'Lancement',           section: 'section-lancement', precKey: null },
+  { key: 'jdp2025',   num: 2, titre: 'Validation JDP 2025', section: 'section-jdp2025',   precKey: 'lancement' },
+  { key: 'jdp2026',   num: 3, titre: 'Validation JDP 2026', section: 'section-jdp2026',   precKey: 'jdp2025' },
+  { key: 'missions',  num: 4, titre: 'Import Missions',      section: 'section-missions',  precKey: 'jdp2026' },
+  { key: 'pi',        num: 5, titre: 'Import PI',            section: 'section-pi',        precKey: 'missions' },
+  { key: 'cda',       num: 6, titre: 'Import CDA',           section: 'section-cda',       precKey: 'pi' },
+  { key: 'sf',        num: 7, titre: 'Import SF',            section: 'section-sf',        precKey: 'cda' },
+  { key: 'factures',  num: 8, titre: 'Import Factures',      section: 'section-factures',  precKey: 'sf' },
+  { key: 'rappro',    num: 9, titre: 'Import Rapprochement', section: 'section-rappro',    precKey: 'factures' },
+  { key: 'export',    num: 10, titre: 'Export SIFAC',        section: 'section-export',    precKey: 'rappro' },
+  { key: 'nettoyage', num: 11, titre: 'Nettoyage',           section: 'section-nettoyage', precKey: 'export' },
+];
+
+const TABLE_CONFIG = 'CONFIG';
+const CC_LISTE_BLANCHE = new Set([
+  'C11','C12','C13','C14','C15','C16','C17','C18','C19','C20',
+  'C21','C22','C23','C24','C25','C26','C27','C28','C29','C30',
+  'C31','C32','C33','C34','C35','C41','C42','C44','C45','C59','C75',
+  'COMMUN','INRAE'
+]);
+
+/* ══════════════════════════════════════════════════════════════════
+   HELPERS GLOBAUX
+══════════════════════════════════════════════════════════════════ */
+const str  = v => (v === null || v === undefined) ? '' : String(v).trim();
+const show = id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; };
+const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+
+function scrollToSection(sectionId) {
+  const el = document.getElementById(sectionId);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderDataBlock(containerId, items) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  items.forEach(({ label, value, pill, pillCls }) => {
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    row.innerHTML =
+      `<span class="data-label">${label}</span>` +
+      (pill !== undefined
+        ? `<span class="pill ${pillCls||''}">${pill}</span>`
+        : `<span style="font-weight:600">${value||'—'}</span>`);
+    el.appendChild(row);
+  });
+}
+
+function renderGroupList(containerId, groups) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  groups.slice(0, 15).forEach(({ key, count }) => {
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    row.innerHTML =
+      `<span>${key}</span>` +
+      `<span class="pill">${count} ligne${count > 1 ? 's' : ''}</span>`;
+    el.appendChild(row);
+  });
+  if (groups.length > 15) {
+    const more = document.createElement('div');
+    more.className = 'data-row';
+    more.style.color = '#888';
+    more.textContent = `… et ${groups.length - 15} PFi supplémentaire(s)`;
+    el.appendChild(more);
+  }
+}
+
+function groupByCol(rows, col) {
+  const g = {};
+  rows.forEach(r => { const k = str(r[col]) || '(vide)'; g[k] = (g[k]||0)+1; });
+  return Object.entries(g).map(([key, count]) => ({ key, count }));
+}
+
+function animProgress(id, from, to, ms) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const t0 = performance.now();
+  (function tick(now) {
+    const p = Math.min((now - t0) / ms, 1);
+    el.style.width = (from + (to - from) * p) + '%';
+    if (p < 1) requestAnimationFrame(tick);
+  })(performance.now());
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ACCÈS GRIST
+══════════════════════════════════════════════════════════════════ */
+async function tableExists(name) {
+  try { await grist.docApi.fetchTable(name); return true; }
+  catch(_) { return false; }
+}
+
+async function fetchAllRows(tableName) {
+  const t = await grist.docApi.fetchTable(tableName);
+  return (t.id || []).map((id, i) => {
+    const rec = { id };
+    Object.keys(t).forEach(k => { rec[k] = t[k][i]; });
+    return rec;
+  });
+}
+
+async function ensureTable(name, columns) {
+  if (await tableExists(name)) return;
+  await grist.docApi.applyUserActions([['AddTable', name, columns]]);
+}
+
+/* CONFIG helpers */
+let _configCache = {};
+
+async function loadConfig() {
+  try {
+    const rows = await fetchAllRows(TABLE_CONFIG);
+    _configCache = {};
+    rows.forEach(r => { _configCache[str(r.etape)] = str(r.statut); });
+  } catch(_) { _configCache = {}; }
+  return _configCache;
+}
+
+async function setConfig(etape, statut) {
+  try {
+    await ensureTable(TABLE_CONFIG, [
+      { id: 'etape', type: 'Text' },
+      { id: 'statut', type: 'Text' },
+      { id: 'updated_at', type: 'Text' },
+    ]);
+    const rows = await fetchAllRows(TABLE_CONFIG);
+    const existing = rows.find(r => str(r.etape) === etape);
+    const payload = { statut, updated_at: new Date().toISOString() };
+    if (existing) {
+      await grist.docApi.applyUserActions([['UpdateRecord', TABLE_CONFIG, existing.id, payload]]);
+    } else {
+      await grist.docApi.applyUserActions([['AddRecord', TABLE_CONFIG, null, { etape, ...payload }]]);
+    }
+    _configCache[etape] = statut;
+    renderSidebar(_configCache);
+    applySectionStates(_configCache);
+  } catch(e) { console.warn('setConfig:', e.message); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SIDEBAR & ÉTAT DES SECTIONS
+══════════════════════════════════════════════════════════════════ */
+function renderSidebar(configMap) {
+  const nav = document.getElementById('nav-list');
+  nav.innerHTML = '';
+  let nbValides = 0;
+
+  ETAPES.forEach(etape => {
+    const statut = configMap[etape.key] || '';
+    const valide = statut === 'valide' || statut === 'ignore';
+    if (valide) nbValides++;
+
+    const accessible = !etape.precKey ||
+      ['valide','ignore'].includes(configMap[etape.precKey] || '');
+
+    const cls = valide ? 'valide' : statut === 'en_cours' ? 'en_cours active' :
+                accessible ? '' : 'bloque';
+
+    const icon = valide ? '✓' : statut === 'en_cours' ? '◉' : accessible ? '○' : '○';
+
+    const item = document.createElement('div');
+    item.className = 'nav-item ' + cls;
+    item.innerHTML =
+      `<div class="nav-num">${icon}</div>` +
+      `<span>${etape.num}. ${etape.titre}</span>`;
+
+    if (accessible || valide) {
+      item.onclick = () => scrollToSection(etape.section);
+      item.style.cursor = 'pointer';
+    }
+    nav.appendChild(item);
+  });
+
+  // Barre de progression sidebar
+  const pct = Math.round((nbValides / ETAPES.length) * 100);
+  document.getElementById('sb-progress-bar').style.width = pct + '%';
+  document.getElementById('sb-progress-pct').textContent = pct + ' %';
+}
+
+function applySectionStates(configMap) {
+  ETAPES.forEach(etape => {
+    const statut = configMap[etape.key] || '';
+    const valide = statut === 'valide' || statut === 'ignore';
+    const accessible = !etape.precKey ||
+      ['valide','ignore'].includes(configMap[etape.precKey] || '');
+
+    // Numéro + titre
+    const numEl   = document.getElementById('snum-' + etape.key);
+    const titleEl = document.getElementById('stitle-' + etape.key);
+    const bodyEl  = document.getElementById('sbody-' + etape.key);
+    const blockEl = document.getElementById('sblock-' + etape.key);
+
+    if (!numEl) return;
+
+    if (valide) {
+      numEl.className = 'section-num valide';
+      titleEl.className = 'section-title';
+    } else if (accessible) {
+      numEl.className = 'section-num active';
+      titleEl.className = 'section-title';
+    } else {
+      numEl.className = 'section-num bloque';
+      titleEl.className = 'section-title bloque';
+    }
+
+    // Bloque ou débloque le contenu
+    if (accessible) {
+      bodyEl.classList.remove('bloque');
+      blockEl.classList.remove('visible');
+    } else {
+      bodyEl.classList.add('bloque');
+      blockEl.classList.add('visible');
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MODULE : LANCEMENT
+══════════════════════════════════════════════════════════════════ */
+const lancement = (() => {
+  let pjRows  = [];
+  let jdpRows = [];
+
+  function setStep(n) {
+    ['l-step-0','l-step-1','l-step-2','l-step-3'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'step' + (parseInt(id.split('-')[2]) === n ? ' active' : '');
+    });
+    ['l-st0','l-st1','l-st2','l-st3'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'st' + (i < n ? ' done' : i === n ? ' active' : '');
+    });
+  }
+
+  async function lancerAnalyse() {
+    const btn = document.getElementById('l-btn-launch');
+    btn.disabled = true; btn.textContent = 'Initialisation…';
+    try {
+      await ensureTable(TABLE_CONFIG, [
+        { id: 'etape', type: 'Text' }, { id: 'statut', type: 'Text' }, { id: 'updated_at', type: 'Text' }
+      ]);
+      await ensureTable('PIECES_JUSTIF', [
+        { id: 'pfi', type: 'Text' }, { id: 'cfi', type: 'Text' }
+      ]);
+      pjRows = await fetchAllRows('PIECES_JUSTIF');
+      if (pjRows.length > 0) {
+        await grist.docApi.applyUserActions([['BulkRemoveRecord', 'PIECES_JUSTIF', pjRows.map(r => r.id)]]);
+        pjRows = [];
+      }
+      jdpRows = await fetchAllRows('JDP_2025');
+    } catch(e) {
+      showErr('l-s3-err', 'l-s3-err-msg', e.message); setStep(3); return;
+    }
+    await setConfig('lancement', 'en_cours');
+    setStep(1);
+    if (pjRows.length === 0) { show('l-s1-vide'); }
+    else {
+      document.getElementById('l-s1-badge-count').textContent = pjRows.length + ' ligne(s)';
+      renderGroupList('l-s1-data-list', groupByCol(pjRows, 'pfi'));
+      document.getElementById('l-s1-total').textContent = pjRows.length + ' ligne(s)';
+      show('l-s1-present');
+    }
+  }
+
+  async function effacerPJ() {
+    try {
+      const rows = await fetchAllRows('PIECES_JUSTIF');
+      if (rows.length) await grist.docApi.applyUserActions([['BulkRemoveRecord', 'PIECES_JUSTIF', rows.map(r => r.id)]]);
+      pjRows = [];
+      hide('l-s1-present'); show('l-s1-vide');
+    } catch(e) { showErr('l-s3-err', 'l-s3-err-msg', e.message); setStep(3); }
+  }
+
+  async function checkJDP25() {
+    setStep(2); show('l-s2-loading');
+    try { jdpRows = await fetchAllRows('JDP_2025'); }
+    catch(e) { hide('l-s2-loading'); showErr('l-s3-err', 'l-s3-err-msg', e.message); setStep(3); return; }
+    hide('l-s2-loading');
+    if (jdpRows.length > 0) {
+      renderGroupList('l-s2-data-list', groupByCol(jdpRows, 'pfi'));
+      document.getElementById('l-s2-total').textContent = jdpRows.length + ' ligne(s)';
+      show('l-s2-filled');
+    } else { show('l-s2-empty'); }
+  }
+
+  async function confirmerJDP25() {
+    await setConfig('jdp2025', 'valide');
+    await setConfig('lancement', 'valide');
+    const first = jdpRows[0] || {};
+    renderDataBlock('l-s3-details-26', [
+      { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+      { label: 'JDP 2025', pill: jdpRows.length + ' ligne(s) confirmées', pillCls: 'pill-ok' },
+      { label: 'Premier PFi', value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+    ]);
+    show('l-s3-jdp26'); setStep(3);
+  }
+
+  async function effacerJDP25() {
+    await setConfig('jdp2025', 'a_recharger');
+    hide('l-s2-filled'); show('l-s2-empty');
+  }
+
+  async function versJDP25() {
+    await setConfig('lancement', 'valide');
+    renderDataBlock('l-s3-details-25', [
+      { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+      { label: 'Étape suivante', value: 'Validation JDP 2025' },
+    ]);
+    show('l-s3-jdp25'); setStep(3);
+  }
+
+  async function versJDP26() {
+    await setConfig('jdp2025', 'ignore');
+    await setConfig('lancement', 'valide');
+    renderDataBlock('l-s3-details-26', [
+      { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+      { label: 'JDP 2025', value: 'Ignoré' },
+      { label: 'Étape suivante', value: 'Validation JDP 2026' },
+    ]);
+    show('l-s3-jdp26'); setStep(3);
+  }
+
+  async function init() {
+    try {
+      const pjExists = await tableExists('PIECES_JUSTIF');
+      document.getElementById('l-s0-pj').textContent = pjExists
+        ? ((await fetchAllRows('PIECES_JUSTIF')).length + ' ligne(s) — sera vidée')
+        : 'Absente — sera créée';
+      const jdp = await fetchAllRows('JDP_2025');
+      document.getElementById('l-s0-jdp').textContent =
+        jdp.length > 0 ? jdp.length + ' ligne(s)' : 'Vide';
+      const cfgExists = await tableExists(TABLE_CONFIG);
+      document.getElementById('l-s0-config').textContent =
+        cfgExists ? 'Présente' : 'Absente — sera créée';
+    } catch(_) {}
+    document.getElementById('l-btn-launch').disabled = false;
+  }
+
+  return { lancerAnalyse, effacerPJ, checkJDP25, confirmerJDP25, effacerJDP25, versJDP25, versJDP26, init };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   FACTORY : crée un module de validation JDP (2025 ou 2026)
+══════════════════════════════════════════════════════════════════ */
+function makeJDPModule(annee, table, etapeCourante, prefix) {
+  let tableRows = [];
+  let forceCC   = false;
+
+  function setStep(n) {
+    [0,1,2,3].forEach(i => {
+      const el = document.getElementById(`${prefix}-step-${i}`);
+      if (el) el.className = 'step' + (i === n ? ' active' : '');
+      const st = document.getElementById(`${prefix}-st${i}`);
+      if (st) st.className = 'st' + (i < n ? ' done' : i === n ? ' active' : '');
+    });
+  }
+
+  function goStep(n) { setStep(n); }
+
+  function reset() {
+    forceCC   = false;
+    tableRows = [];
+    setStep(0);
+    [1,2,3].forEach(i => {
+      const el = document.getElementById(`${prefix}-step-${i}`);
+      if (el) { el.querySelectorAll('.card').forEach(c => c.style.display = 'none'); }
+    });
+    document.getElementById(`${prefix}-s0-count`).innerHTML = '<span class="spinner"></span>';
+    initCount();
+  }
+
+  function validerExercice(rows) {
+    for (const row of rows) {
+      const v = str(row.exercice);
+      if (v !== '' && v !== annee) return { ok: false, id: row.id, valeur: v };
+    }
+    return { ok: true };
+  }
+
+  function validerCentreCouts(rows) {
+    for (const row of rows) {
+      const raw = str(row.centre_couts);
+      if (!raw) continue;
+      const v = raw.toUpperCase();
+      const ok = v.startsWith('MSL') || CC_LISTE_BLANCHE.has(v) ||
+                 v.length === 9 || v.length === 10 || (v.length === 8 && v[4] === 'L');
+      if (!ok) return { ok: false, id: row.id, valeur: raw };
+    }
+    return { ok: true };
+  }
+
+  function afficherOK() {
+    const first = tableRows[0] || {};
+    renderDataBlock(`${prefix}-s1-ok-details`, [
+      { label: 'Nombre de lignes',
+        pill: tableRows.length + ' ligne' + (tableRows.length > 1 ? 's' : ''), pillCls: 'pill-ok' },
+      { label: 'Exercice comptable', value: str(first.exercice) },
+      { label: 'Programme de financement (PFi)',
+        value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+      { label: 'Centre financier (CFi)',
+        value: str(first.cfi) + (first.cfi_libelle ? ' — ' + str(first.cfi_libelle) : '') },
+      { label: 'Centre de coûts (1ère ligne)',
+        value: str(first.centre_couts) + (forceCC ? ' ⚠ (forcé)' : '') },
+    ]);
+    show(`${prefix}-s1-ok`);
+    buildConfirmation();
+  }
+
+  function buildConfirmation() {
+    const first = tableRows[0] || {};
+    renderDataBlock(`${prefix}-s2-summary`, [
+      { label: 'Nombre de lignes',
+        pill: tableRows.length + ' ligne' + (tableRows.length > 1 ? 's' : '') },
+      { label: 'Exercice comptable', value: str(first.exercice) },
+      { label: 'Programme de financement (PFi)',
+        value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+      { label: 'Centre financier (CFi)',
+        value: str(first.cfi) + (first.cfi_libelle ? ' — ' + str(first.cfi_libelle) : '') },
+      { label: 'Centre de coûts forcé',
+        value: forceCC ? 'Oui — résultats potentiellement erronés' : 'Non' },
+    ]);
+  }
+
+  async function startValidation() {
+    document.getElementById(`${prefix}-btn-start`).disabled = true;
+    setStep(1); show(`${prefix}-s1-loading`);
+    animProgress(`${prefix}-s1-progress`, 0, 35, 400);
+    try { tableRows = await fetchAllRows(table); }
+    catch(e) { hide(`${prefix}-s1-loading`); showErr(`${prefix}-s3-err`, `${prefix}-s3-err-msg`, e.message); setStep(3); return; }
+    animProgress(`${prefix}-s1-progress`, 35, 60, 300);
+    if (tableRows.length === 0) { hide(`${prefix}-s1-loading`); show(`${prefix}-s1-empty`); return; }
+    const checkEx = validerExercice(tableRows);
+    if (!checkEx.ok) {
+      animProgress(`${prefix}-s1-progress`, 60, 100, 200);
+      setTimeout(() => {
+        hide(`${prefix}-s1-loading`);
+        document.getElementById(`${prefix}-s1-err-exercice-detail`).textContent =
+          `Ligne id ${checkEx.id} — valeur : "${checkEx.valeur}" (attendu : "${annee}")`;
+        show(`${prefix}-s1-err-exercice`);
+      }, 220);
+      return;
+    }
+    animProgress(`${prefix}-s1-progress`, 60, 85, 300);
+    const checkCC = validerCentreCouts(tableRows);
+    if (!checkCC.ok && !forceCC) {
+      animProgress(`${prefix}-s1-progress`, 85, 100, 200);
+      setTimeout(() => {
+        hide(`${prefix}-s1-loading`);
+        document.getElementById(`${prefix}-s1-warn-cc-detail`).textContent =
+          `Ligne id ${checkCC.id} — centre de coûts : "${checkCC.valeur}"`;
+        show(`${prefix}-s1-warn-cc`);
+      }, 220);
+      return;
+    }
+    animProgress(`${prefix}-s1-progress`, 85, 100, 300);
+    setTimeout(() => { hide(`${prefix}-s1-loading`); afficherOK(); }, 320);
+  }
+
+  function forcerValidation() {
+    forceCC = true;
+    hide(`${prefix}-s1-warn-cc`); show(`${prefix}-s1-loading`);
+    animProgress(`${prefix}-s1-progress`, 0, 100, 500);
+    setTimeout(() => { hide(`${prefix}-s1-loading`); afficherOK(); }, 520);
+  }
+
+  async function confirmerValidation() {
+    try {
+      await setConfig(etapeCourante, 'valide');
+      const first = tableRows[0] || {};
+      renderDataBlock(`${prefix}-s3-ok-details`, [
+        { label: 'Lignes validées',
+          pill: tableRows.length + ' ligne' + (tableRows.length > 1 ? 's' : ''), pillCls: 'pill-ok' },
+        { label: 'Exercice comptable', value: str(first.exercice) },
+        { label: 'Programme de financement (PFi)',
+          value: str(first.pfi) + (first.pfi_libelle ? ' — ' + str(first.pfi_libelle) : '') },
+        { label: 'Centre financier (CFi)',
+          value: str(first.cfi) + (first.cfi_libelle ? ' — ' + str(first.cfi_libelle) : '') },
+      ]);
+      show(`${prefix}-s3-ok`); setStep(3);
+    } catch(e) { showErr(`${prefix}-s3-err`, `${prefix}-s3-err-msg`, e.message); setStep(3); }
+  }
+
+  async function initCount() {
+    try {
+      const rows = await fetchAllRows(table);
+      document.getElementById(`${prefix}-s0-count`).textContent =
+        rows.length > 0 ? rows.length + ' ligne(s)' : 'Vide';
+    } catch(e) {
+      document.getElementById(`${prefix}-s0-count`).textContent = 'Non accessible';
+      document.getElementById(`${prefix}-s0-err`).textContent = e.message;
+      show(`${prefix}-s0-err`);
+    }
+    document.getElementById(`${prefix}-btn-start`).disabled = false;
+  }
+
+  return { startValidation, forcerValidation, confirmerValidation, goStep, reset, initCount };
+}
+
+/* Instanciation des modules JDP */
+const jdp25 = makeJDPModule('2025', 'JDP_2025', 'jdp2025', 'j25');
+const jdp26 = makeJDPModule('2026', 'JDP_2026', 'jdp2026', 'j26');
+
+/* ══════════════════════════════════════════════════════════════════
+   ERREUR TECHNIQUE (partagée)
+══════════════════════════════════════════════════════════════════ */
+function showErr(cardId, msgId, msg) {
+  document.getElementById(msgId).textContent = 'Erreur : ' + msg;
+  show(cardId);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DÉMARRAGE
+══════════════════════════════════════════════════════════════════ */
+async function boot() {
+  grist.ready({ requiredAccess: 'full' });
+
+  // Chargement initial de CONFIG
+  const configMap = await loadConfig();
+  renderSidebar(configMap);
+  applySectionStates(configMap);
+
+  // Init des compteurs de chaque section active
+  await lancement.init();
+  await jdp25.initCount();
+  await jdp26.initCount();
+
+  // Polling toutes les 5s pour rafraîchir sidebar + états
+  setInterval(async () => {
+    const map = await loadConfig();
+    renderSidebar(map);
+    applySectionStates(map);
+  }, 5000);
+}
+
+boot();
+</script>
+</body>
+</html>
