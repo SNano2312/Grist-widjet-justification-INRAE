@@ -763,7 +763,13 @@ const CC_LISTE_BLANCHE = new Set([
 /* ══════════════════════════════════════════════════════════════════
    HELPERS GLOBAUX
 ══════════════════════════════════════════════════════════════════ */
-const str  = v => (v === null || v === undefined) ? '' : String(v).trim();
+const str  = v => {
+  if (v === null || v === undefined) return '';
+  // Si c'est un grand entier (identifiant SIFAC stocké en numérique), on le convertit
+  // en string sans notation scientifique
+  if (typeof v === 'number') return Number.isInteger(v) ? v.toFixed(0) : String(v);
+  return String(v).trim();
+};
 const show = id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; };
 const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
 
@@ -1080,7 +1086,59 @@ const lancement = (() => {
     document.getElementById('l-btn-launch').disabled = false;
   }
 
-  return { lancerAnalyse, effacerPJ, checkJDP25, confirmerJDP25, effacerJDP25, versJDP25, versJDP26, init };
+  // Restaure l'affichage si le lancement a déjà été effectué
+  async function restoreState(statut, configMap) {
+    if (!statut || statut === 'en_cours') return; // pas encore terminé
+
+    // Récupère les données pour reconstituer l'affichage du résultat
+    try {
+      pjRows  = await fetchAllRows('PIECES_JUSTIF');
+      jdpRows = await fetchAllRows('JDP_2025');
+    } catch(_) {}
+
+    const jdp25Statut = configMap['jdp2025'] || '';
+
+    if (jdp25Statut === 'valide' || jdp25Statut === 'a_recharger') {
+      // JDP 2025 était confirmé → résultat "passer au JDP 2026"
+      const first = jdpRows[0] || {};
+      renderDataBlock('l-s3-details-26', [
+        { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+        { label: 'JDP 2025', pill: jdpRows.length + ' ligne(s) confirmées', pillCls: 'pill-ok' },
+        { label: 'Premier PFi',
+          value: str(first.Programme_de_financement) +
+                 (first.Description_du_programme_de_financement
+                   ? ' — ' + str(first.Description_du_programme_de_financement) : '') },
+      ]);
+      show('l-s3-jdp26');
+    } else if (jdp25Statut === 'ignore') {
+      // JDP 2025 ignoré → résultat "passer au JDP 2026"
+      renderDataBlock('l-s3-details-26', [
+        { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+        { label: 'JDP 2025', value: 'Ignoré — pas de données 2025' },
+        { label: 'Étape suivante', value: 'Validation JDP 2026' },
+      ]);
+      show('l-s3-jdp26');
+    } else {
+      // Lancement valide mais JDP 2025 pas encore traité
+      renderDataBlock('l-s3-details-25', [
+        { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+        { label: 'Étape suivante', value: 'Validation JDP 2025' },
+      ]);
+      show('l-s3-jdp25');
+    }
+
+    // Positionne le stepper sur l'étape "résultat"
+    ['l-step-0','l-step-1','l-step-2','l-step-3'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'step' + (id === 'l-step-3' ? ' active' : '');
+    });
+    ['l-st0','l-st1','l-st2','l-st3'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'st' + (i < 3 ? ' done' : ' active');
+    });
+  }
+
+  return { lancerAnalyse, effacerPJ, checkJDP25, confirmerJDP25, effacerJDP25, versJDP25, versJDP26, init, restoreState };
 })();
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1237,7 +1295,39 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
     document.getElementById(`${prefix}-btn-start`).disabled = false;
   }
 
-  return { startValidation, forcerValidation, confirmerValidation, goStep, reset, initCount };
+  // Restaure l'affichage si la validation JDP a déjà été effectuée
+  async function restoreState(statut) {
+    if (statut !== 'valide') return;
+
+    try { tableRows = await fetchAllRows(table); } catch(_) { return; }
+    if (tableRows.length === 0) return;
+
+    const first = tableRows[0] || {};
+    renderDataBlock(`${prefix}-s3-ok-details`, [
+      { label: 'Lignes validées',
+        pill: tableRows.length + ' ligne' + (tableRows.length > 1 ? 's' : ''), pillCls: 'pill-ok' },
+      { label: 'Exercice comptable', value: str(first.Exercice_comptable) },
+      { label: 'Programme de financement (PFi)',
+        value: str(first.Programme_de_financement) +
+               (first.Description_du_programme_de_financement
+                 ? ' — ' + str(first.Description_du_programme_de_financement) : '') },
+      { label: 'Centre financier (CFi)',
+        value: str(first.Centre_financier) +
+               (first.Designation_du_centre_financier
+                 ? ' — ' + str(first.Designation_du_centre_financier) : '') },
+    ]);
+    show(`${prefix}-s3-ok`);
+
+    // Positionne le stepper sur l'étape "résultat"
+    [0,1,2,3].forEach(i => {
+      const el = document.getElementById(`${prefix}-step-${i}`);
+      if (el) el.className = 'step' + (i === 3 ? ' active' : '');
+      const st = document.getElementById(`${prefix}-st${i}`);
+      if (st) st.className = 'st' + (i < 3 ? ' done' : ' active');
+    });
+  }
+
+  return { startValidation, forcerValidation, confirmerValidation, goStep, reset, initCount, restoreState };
 }
 
 /* Instanciation des modules JDP */
@@ -1263,10 +1353,15 @@ async function boot() {
   renderSidebar(configMap);
   applySectionStates(configMap);
 
-  // Init des compteurs de chaque section active
+  // Init des compteurs + restauration de l'état si déjà en cours
   await lancement.init();
   await jdp25.initCount();
   await jdp26.initCount();
+
+  // Restaure l'affichage de chaque section selon CONFIG
+  await lancement.restoreState(configMap['lancement'] || '', configMap);
+  await jdp25.restoreState(configMap['jdp2025'] || '');
+  await jdp26.restoreState(configMap['jdp2026'] || '');
 
   // Polling toutes les 5s pour rafraîchir sidebar + états
   setInterval(async () => {
