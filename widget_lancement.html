@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget — Lancement de la matrice</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px; color: #1a1a1a; background: #fff; line-height: 1.6;
+    }
+    .wrap { padding: 1.25rem; max-width: 720px; }
+    .stepper {
+      display: flex; margin-bottom: 1.5rem;
+      border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;
+    }
+    .st {
+      flex: 1; text-align: center; padding: 8px 4px; font-size: 11px;
+      color: #888; background: #f5f5f5; border-right: 1px solid #e0e0e0;
+    }
+    .st:last-child { border-right: none; }
+    .st.done   { background: #e6f4ea; color: #2e7d32; }
+    .st.active { background: #e3f2fd; color: #1565c0; font-weight: 600; }
+    .card {
+      background: #fff; border: 1px solid #e0e0e0;
+      border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;
+    }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 0.35rem; }
+    .card-sub   { font-size: 13px; color: #555; line-height: 1.65; margin-bottom: 1rem; }
+    .badge {
+      display: inline-block; font-size: 11px; padding: 3px 10px;
+      border-radius: 20px; margin-bottom: 0.75rem; font-weight: 500;
+    }
+    .badge-info { background: #e3f2fd; color: #1565c0; }
+    .badge-warn { background: #fff8e1; color: #e65100; }
+    .badge-ok   { background: #e6f4ea; color: #2e7d32; }
+    .badge-err  { background: #fce4ec; color: #b71c1c; }
+    .kv { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; font-size: 13px; }
+    .kv-label { color: #666; min-width: 220px; flex-shrink: 0; }
+    .kv-val   { font-weight: 600; word-break: break-word; }
+    .sep { border-top: 1px solid #e0e0e0; margin: 1rem 0; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+    button {
+      font-size: 13px; padding: 7px 16px; border-radius: 6px;
+      border: 1px solid #ccc; background: #fff; color: #1a1a1a;
+      cursor: pointer; transition: background .15s;
+    }
+    button:hover    { background: #f5f5f5; }
+    button:active   { transform: scale(.98); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: #1565c0; color: #fff; border-color: #1565c0; }
+    .btn-primary:hover { background: #1251a0; }
+    .btn-danger  { background: #b71c1c; color: #fff; border-color: #b71c1c; }
+    .btn-danger:hover { background: #9a1515; }
+    .alert {
+      border-radius: 6px; padding: 10px 14px; font-size: 13px;
+      margin-bottom: 0.75rem; border-left: 3px solid; line-height: 1.6;
+    }
+    .alert-info { background: #e3f2fd; color: #1565c0; border-color: #1565c0; }
+    .alert-warn { background: #fff8e1; color: #e65100; border-color: #e65100; }
+    .alert-err  { background: #fce4ec; color: #b71c1c; border-color: #b71c1c; }
+    .alert-ok   { background: #e6f4ea; color: #2e7d32; border-color: #2e7d32; }
+    .data-block {
+      border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; margin-top: 0.75rem;
+    }
+    .data-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 12px; font-size: 12px; border-bottom: 1px solid #e0e0e0;
+    }
+    .data-row:last-child { border-bottom: none; }
+    .data-row:nth-child(even) { background: #fafafa; }
+    .data-label { color: #666; min-width: 180px; }
+    .pill {
+      font-size: 11px; padding: 2px 8px; border-radius: 20px;
+      background: #e3f2fd; color: #1565c0; white-space: nowrap; font-weight: 500;
+    }
+    .pill-ok { background: #e6f4ea; color: #2e7d32; }
+    .spinner {
+      display: inline-block; width: 13px; height: 13px;
+      border: 2px solid #ccc; border-top-color: #1565c0;
+      border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .step { display: none; }
+    .step.active { display: block; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="stepper">
+    <div class="st active" id="st0">1 · Init</div>
+    <div class="st" id="st1">2 · Justif. préc.</div>
+    <div class="st" id="st2">3 · JDP 2025</div>
+    <div class="st" id="st3">4 · Résultat</div>
+  </div>
+
+  <!-- ÉTAPE 1 — INITIALISATION -->
+  <div id="step-0" class="step active">
+    <div class="card">
+      <div class="card-title">Lancement de la matrice de justification</div>
+      <div class="card-sub">
+        Le widget vérifie l'état de vos tables et prépare la session.
+        La table <strong>PIECES_JUSTIF</strong> sera vidée au lancement.
+      </div>
+      <div class="kv">
+        <span class="kv-label">Table PIECES_JUSTIF</span>
+        <span class="kv-val" id="s0-pj"><span class="spinner"></span></span>
+      </div>
+      <div class="kv">
+        <span class="kv-label">Table JDP_2025</span>
+        <span class="kv-val" id="s0-jdp">—</span>
+      </div>
+      <div class="kv">
+        <span class="kv-label">Table CONFIG</span>
+        <span class="kv-val" id="s0-config">—</span>
+      </div>
+      <div id="s0-err" class="alert alert-err" style="display:none"></div>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-launch" onclick="lancerAnalyse()" disabled>
+          Lancer l'analyse
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 2 — JUSTIFICATIONS PRÉCÉDENTES -->
+  <div id="step-1" class="step">
+    <div id="s1-vide" class="card" style="display:none">
+      <span class="badge badge-info">Aucune justification précédente</span>
+      <div class="card-title">PIECES_JUSTIF est vide</div>
+      <div class="card-sub">
+        Aucune justification précédente n'est présente.<br><br>
+        Toutes les lignes potentiellement à justifier seront incluses
+        dans la justification que la matrice va créer.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="checkJDP25()">Continuer →</button>
+      </div>
+    </div>
+    <div id="s1-present" class="card" style="display:none">
+      <span class="badge badge-warn" id="s1-badge-count"></span>
+      <div class="card-title">Justifications précédentes détectées</div>
+      <div class="card-sub">
+        Les lignes ci-dessous sont présentes dans <strong>PIECES_JUSTIF</strong>.
+        Elles seront exclues de la justification à créer.
+      </div>
+      <div class="data-block" id="s1-data-list"></div>
+      <div class="kv" style="margin-top:.75rem">
+        <span class="kv-label">Total lignes</span>
+        <span class="kv-val" id="s1-total">—</span>
+      </div>
+      <div class="alert alert-warn" style="margin-top:.75rem">
+        Si ces données ne correspondent pas à ce que vous souhaitez,
+        effacez-les et repartez sans justifications précédentes.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="checkJDP25()">
+          Utiliser ces justifications et continuer →
+        </button>
+        <button class="btn-danger" onclick="effacerPJ()">
+          Effacer et repartir sans justifications précédentes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 3 — VÉRIFICATION JDP 2025 -->
+  <div id="step-2" class="step">
+    <div id="s2-loading" class="card" style="display:none">
+      <div class="card-sub"><span class="spinner"></span>Vérification de JDP_2025…</div>
+    </div>
+    <div id="s2-filled" class="card" style="display:none">
+      <span class="badge badge-warn">Données JDP 2025 déjà présentes</span>
+      <div class="card-title">Journal des Pièces 2025 détecté dans la matrice</div>
+      <div class="card-sub">
+        Des données sont déjà présentes dans <strong>JDP_2025</strong>.
+        Vérifiez qu'elles correspondent bien à ce que vous souhaitez justifier.
+      </div>
+      <div class="data-block" id="s2-data-list"></div>
+      <div class="kv" style="margin-top:.75rem">
+        <span class="kv-label">Total lignes présentes</span>
+        <span class="kv-val" id="s2-total">—</span>
+      </div>
+      <div class="alert alert-warn" style="margin-top:.75rem">
+        Vérifiez que ces données incluent tous les PFi et CFi souhaités.
+        Seule la première ligne de chaque PFi est affichée ici.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="confirmerJDP25()">
+          Oui, données correctes → passer au JDP 2026
+        </button>
+        <button class="btn-danger" onclick="effacerJDP25()">
+          Non, effacer ces données
+        </button>
+      </div>
+    </div>
+    <div id="s2-empty" class="card" style="display:none">
+      <span class="badge badge-info">JDP 2025 vide</span>
+      <div class="card-title">Aucune donnée JDP 2025 dans la matrice</div>
+      <div class="card-sub">
+        Souhaitez-vous inclure les pièces payées en 2025 dans votre justification ?
+      </div>
+      <div class="alert alert-info">
+        <strong>Oui :</strong> descendez au widget <em>Validation JDP 2025</em> ci-dessous.<br><br>
+        <strong>Non :</strong> descendez au widget <em>Validation JDP 2026</em>.
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="versJDP25()">Oui, injecter le JDP 2025</button>
+        <button onclick="versJDP26()">Non, passer directement au JDP 2026</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 4 — RÉSULTAT -->
+  <div id="step-3" class="step">
+    <div id="s3-jdp25" class="card" style="display:none">
+      <span class="badge badge-ok">Matrice lancée</span>
+      <div class="card-title">Prêt pour l'injection du JDP 2025</div>
+      <div class="data-block" id="s3-details-25"></div>
+      <div class="alert alert-info" style="margin-top:.75rem">
+        Descendez au widget <strong>Validation JDP 2025</strong> pour continuer.
+      </div>
+    </div>
+    <div id="s3-jdp26" class="card" style="display:none">
+      <span class="badge badge-ok">Matrice lancée</span>
+      <div class="card-title">Prêt pour l'injection du JDP 2026</div>
+      <div class="data-block" id="s3-details-26"></div>
+      <div class="alert alert-info" style="margin-top:.75rem">
+        Descendez au widget <strong>Validation JDP 2026</strong> pour continuer.
+      </div>
+    </div>
+    <div id="s3-err" class="card" style="display:none">
+      <span class="badge badge-err">Erreur technique</span>
+      <div class="card-title">Une erreur est survenue</div>
+      <div id="s3-err-msg" class="card-sub"></div>
+      <div class="alert alert-err">
+        Faites une capture d'écran et déposez un ticket Ariane via SIFAC
+        (Espace Aide → Créer un ticket Ariane).
+      </div>
+      <div class="btn-row">
+        <button onclick="location.reload()">Recommencer</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+/*
+ * ARCHITECTURE DES TABLES
+ * ─────────────────────────────────────────────────────
+ * Tables d'extraction (LECTURE SEULE — ne jamais écrire dessus) :
+ *   - JDP_2025
+ *
+ * Tables auxiliaires (créées par le widget si absentes) :
+ *   - PIECES_JUSTIF  : justifications précédentes
+ *   - CONFIG         : suivi de l'avancement des étapes
+ * ─────────────────────────────────────────────────────
+ */
+const TABLE_PJ     = 'PIECES_JUSTIF';
+const TABLE_JDP25  = 'JDP_2025';
+const TABLE_CONFIG = 'CONFIG';
+
+// Colonnes de JDP_2025 utilisées en lecture
+const COL_PFI         = 'pfi';
+const COL_PFI_LIBELLE = 'pfi_libelle';
+
+let pjRows  = [];
+let jdpRows = [];
+
+/* ── UI helpers ── */
+function setStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  ['st0','st1','st2','st3'].forEach((id, i) => {
+    document.getElementById(id).className =
+      'st' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+}
+const show = id => document.getElementById(id).style.display = 'block';
+const hide = id => document.getElementById(id).style.display = 'none';
+const str  = v  => (v === null || v === undefined) ? '' : String(v).trim();
+
+function renderDataBlock(containerId, items) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  items.forEach(({ label, value, pill, pillCls }) => {
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    row.innerHTML =
+      `<span class="data-label">${label}</span>` +
+      (pill !== undefined
+        ? `<span class="pill ${pillCls||''}">${pill}</span>`
+        : `<span style="font-weight:600">${value||'—'}</span>`);
+    el.appendChild(row);
+  });
+}
+
+function renderGroupList(containerId, groups) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  groups.slice(0, 15).forEach(({ key, count }) => {
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    row.innerHTML =
+      `<span>${key}</span>` +
+      `<span class="pill">${count} ligne${count > 1 ? 's' : ''}</span>`;
+    el.appendChild(row);
+  });
+  if (groups.length > 15) {
+    const more = document.createElement('div');
+    more.className = 'data-row';
+    more.style.color = '#888';
+    more.textContent = `… et ${groups.length - 15} PFi supplémentaire(s)`;
+    el.appendChild(more);
+  }
+}
+
+function groupByCol(rows, col) {
+  const g = {};
+  rows.forEach(r => { const k = str(r[col]) || '(vide)'; g[k] = (g[k]||0)+1; });
+  return Object.entries(g).map(([key, count]) => ({ key, count }));
+}
+
+/* ── Accès Grist ── */
+async function tableExists(name) {
+  try { await grist.docApi.fetchTable(name); return true; }
+  catch(_) { return false; }
+}
+
+async function fetchAllRows(tableName) {
+  const t = await grist.docApi.fetchTable(tableName);
+  return (t.id || []).map((id, i) => {
+    const rec = { id };
+    Object.keys(t).forEach(k => { rec[k] = t[k][i]; });
+    return rec;
+  });
+}
+
+async function ensureTable(name, columns) {
+  if (await tableExists(name)) return;
+  await grist.docApi.applyUserActions([['AddTable', name, columns]]);
+}
+
+async function setConfig(etape, statut) {
+  try {
+    await ensureTable(TABLE_CONFIG, [
+      { id: 'etape',      type: 'Text' },
+      { id: 'statut',     type: 'Text' },
+      { id: 'updated_at', type: 'Text' },
+    ]);
+    const rows     = await fetchAllRows(TABLE_CONFIG);
+    const existing = rows.find(r => str(r.etape) === etape);
+    const payload  = { statut, updated_at: new Date().toISOString() };
+    if (existing) {
+      await grist.docApi.applyUserActions([
+        ['UpdateRecord', TABLE_CONFIG, existing.id, payload]
+      ]);
+    } else {
+      await grist.docApi.applyUserActions([
+        ['AddRecord', TABLE_CONFIG, null, { etape, ...payload }]
+      ]);
+    }
+  } catch(e) { console.warn('setConfig:', e.message); }
+}
+
+/* ── Flux principal ── */
+async function lancerAnalyse() {
+  const btn = document.getElementById('btn-launch');
+  btn.disabled = true;
+  btn.textContent = 'Initialisation…';
+
+  try {
+    // Crée les tables auxiliaires si nécessaire
+    await ensureTable(TABLE_CONFIG, [
+      { id: 'etape',      type: 'Text' },
+      { id: 'statut',     type: 'Text' },
+      { id: 'updated_at', type: 'Text' },
+    ]);
+    await ensureTable(TABLE_PJ, [
+      { id: 'pfi', type: 'Text' },
+      { id: 'cfi', type: 'Text' },
+    ]);
+
+    // RAZ PIECES_JUSTIF (fidèle au VBA : vidage systématique au lancement)
+    pjRows = await fetchAllRows(TABLE_PJ);
+    if (pjRows.length > 0) {
+      await grist.docApi.applyUserActions([
+        ['BulkRemoveRecord', TABLE_PJ, pjRows.map(r => r.id)]
+      ]);
+      pjRows = [];
+    }
+
+    // Lecture JDP_2025 — LECTURE SEULE, table d'extraction
+    jdpRows = await fetchAllRows(TABLE_JDP25);
+
+  } catch(e) {
+    showTechError('Erreur lors de l\'initialisation : ' + e.message);
+    return;
+  }
+
+  await setConfig('lancement', 'en_cours');
+  setStep(1);
+
+  // Après RAZ, PIECES_JUSTIF est toujours vide ici
+  // (cas "présent" possible si une autre source l'a remplie entre-temps)
+  if (pjRows.length === 0) {
+    show('s1-vide');
+  } else {
+    document.getElementById('s1-badge-count').textContent =
+      pjRows.length + ' ligne(s) chargée(s)';
+    renderGroupList('s1-data-list', groupByCol(pjRows, COL_PFI));
+    document.getElementById('s1-total').textContent = pjRows.length + ' ligne(s)';
+    show('s1-present');
+  }
+}
+
+async function effacerPJ() {
+  try {
+    const rows = await fetchAllRows(TABLE_PJ);
+    if (rows.length) {
+      await grist.docApi.applyUserActions([
+        ['BulkRemoveRecord', TABLE_PJ, rows.map(r => r.id)]
+      ]);
+    }
+    pjRows = [];
+    hide('s1-present');
+    show('s1-vide');
+  } catch(e) {
+    showTechError('Erreur lors de l\'effacement de PIECES_JUSTIF : ' + e.message);
+  }
+}
+
+async function checkJDP25() {
+  setStep(2);
+  show('s2-loading');
+  try {
+    // Lecture seule — table d'extraction
+    jdpRows = await fetchAllRows(TABLE_JDP25);
+  } catch(e) {
+    hide('s2-loading');
+    showTechError('Impossible de lire JDP_2025 : ' + e.message);
+    return;
+  }
+  hide('s2-loading');
+  if (jdpRows.length > 0) {
+    renderGroupList('s2-data-list', groupByCol(jdpRows, COL_PFI));
+    document.getElementById('s2-total').textContent = jdpRows.length + ' ligne(s)';
+    show('s2-filled');
+  } else {
+    show('s2-empty');
+  }
+}
+
+async function confirmerJDP25() {
+  await setConfig('jdp2025', 'valide');
+  await setConfig('lancement', 'valide');
+  const first = jdpRows[0] || {};
+  renderDataBlock('s3-details-26', [
+    { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+    { label: 'JDP 2025',
+      pill: jdpRows.length + ' ligne(s) confirmées', pillCls: 'pill-ok' },
+    { label: 'Premier PFi',
+      value: str(first[COL_PFI]) +
+             (first[COL_PFI_LIBELLE] ? ' — ' + str(first[COL_PFI_LIBELLE]) : '') },
+    { label: 'Étape suivante', value: 'Validation du Journal des Pièces 2026' },
+  ]);
+  show('s3-jdp26');
+  setStep(3);
+}
+
+async function effacerJDP25() {
+  /*
+   * JDP_2025 est une table d'extraction — on ne supprime pas ses lignes.
+   * On indique dans CONFIG que le JDP 2025 est à recharger,
+   * et on redirige vers le cas "vide" pour que l'utilisateur
+   * sache qu'il doit repasser par l'import SIFAC.
+   */
+  await setConfig('jdp2025', 'a_recharger');
+  hide('s2-filled');
+  show('s2-empty');
+}
+
+async function versJDP25() {
+  await setConfig('lancement', 'valide');
+  renderDataBlock('s3-details-25', [
+    { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+    { label: 'Étape suivante', value: 'Validation du Journal des Pièces 2025' },
+  ]);
+  show('s3-jdp25');
+  setStep(3);
+}
+
+async function versJDP26() {
+  await setConfig('jdp2025', 'ignore');
+  await setConfig('lancement', 'valide');
+  renderDataBlock('s3-details-26', [
+    { label: 'Justif. précédentes', pill: pjRows.length + ' ligne(s)' },
+    { label: 'JDP 2025', value: 'Ignoré — pas de données 2025' },
+    { label: 'Étape suivante', value: 'Validation du Journal des Pièces 2026' },
+  ]);
+  show('s3-jdp26');
+  setStep(3);
+}
+
+function showTechError(msg) {
+  document.getElementById('s3-err-msg').textContent = msg;
+  show('s3-err');
+  setStep(3);
+}
+
+/* ── Démarrage ── */
+async function boot() {
+  grist.ready({ requiredAccess: 'full' });
+
+  try {
+    const exists = await tableExists(TABLE_PJ);
+    if (exists) {
+      const rows = await fetchAllRows(TABLE_PJ);
+      document.getElementById('s0-pj').textContent =
+        rows.length > 0
+          ? rows.length + ' ligne(s) présente(s) — sera vidée au lancement'
+          : 'Vide — prête';
+    } else {
+      document.getElementById('s0-pj').textContent = 'Absente — sera créée au lancement';
+    }
+  } catch(_) {
+    document.getElementById('s0-pj').textContent = 'Non accessible';
+  }
+
+  try {
+    const rows = await fetchAllRows(TABLE_JDP25);
+    document.getElementById('s0-jdp').textContent =
+      rows.length > 0 ? rows.length + ' ligne(s) présente(s)' : 'Vide';
+  } catch(_) {
+    document.getElementById('s0-jdp').textContent = 'Non accessible';
+  }
+
+  try {
+    const exists = await tableExists(TABLE_CONFIG);
+    document.getElementById('s0-config').textContent =
+      exists ? 'Présente' : 'Absente — sera créée au lancement';
+  } catch(_) {
+    document.getElementById('s0-config').textContent = 'Non accessible';
+  }
+
+  document.getElementById('btn-launch').disabled = false;
+}
+
+boot();
+</script>
+</body>
+</html>
