@@ -1005,50 +1005,96 @@ const configScreen = (() => {
   let availableTables = [];
 
   async function loadAvailableTables() {
-    try {
-      // Récupère la liste de toutes les tables du document Grist
-      const tables = await grist.docApi.listTables();
-      availableTables = tables.sort();
-      return availableTables;
-    } catch(e) {
-      console.warn('listTables:', e.message);
-      return [];
+    // grist.docApi.listTables() n'est pas disponible dans toutes les versions.
+    // On teste chaque table connue pour vérifier son existence,
+    // et on complète avec les noms déjà sauvegardés dans CONFIG.
+    const candidates = new Set();
+
+    // Ajoute les noms par défaut
+    TABLE_DEFINITIONS.forEach(def => candidates.add(def.default));
+
+    // Ajoute les noms déjà configurés
+    Object.values(TABLE_NAMES).forEach(n => { if (n) candidates.add(n); });
+
+    // Teste chaque candidat pour vérifier son existence dans Grist
+    const confirmed = [];
+    for (const name of candidates) {
+      try {
+        await grist.docApi.fetchTable(name);
+        confirmed.push(name);
+      } catch(_) {}
     }
+
+    // Complète avec tous les noms configurés même si non confirmés
+    Object.values(TABLE_NAMES).forEach(n => {
+      if (n && !confirmed.includes(n)) confirmed.push(n);
+    });
+
+    availableTables = confirmed.sort();
+    return availableTables;
   }
 
   function buildSelect(def, currentValue) {
-    const selectId = `cfg-sel-${def.key}`;
-    const row = document.createElement('div');
-    row.className = 'cfg-row';
+    const inputId = `cfg-sel-${def.key}`;
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom = '12px';
 
+    // Label
     const label = document.createElement('div');
     label.className = 'cfg-label';
+    label.style.marginBottom = '4px';
     label.innerHTML = `<strong>${def.label}</strong>`;
-    row.appendChild(label);
+    wrap.appendChild(label);
 
-    const select = document.createElement('select');
-    select.className = 'cfg-select';
-    select.id = selectId;
+    const row = document.createElement('div');
+    row.className = 'cfg-row';
+    row.style.gap = '6px';
 
-    // Option vide
-    const emptyOpt = document.createElement('option');
-    emptyOpt.value = '';
-    emptyOpt.textContent = '— Choisir une table —';
-    select.appendChild(emptyOpt);
+    // Champ texte libre
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'cfg-select';
+    input.id = inputId;
+    input.placeholder = `ex: ${def.default}`;
+    input.value = currentValue || (availableTables.includes(def.default) ? def.default : '');
+    row.appendChild(input);
 
-    // Options disponibles
-    availableTables.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t;
-      opt.textContent = t;
-      // Pré-sélectionne : valeur sauvegardée, ou correspondance avec le nom par défaut
-      if (currentValue && t === currentValue) opt.selected = true;
-      else if (!currentValue && t.toLowerCase() === def.default.toLowerCase()) opt.selected = true;
-      select.appendChild(opt);
-    });
+    // Si des tables ont été détectées, ajoute un select d'aide
+    if (availableTables.length > 0) {
+      const hint = document.createElement('select');
+      hint.className = 'cfg-select';
+      hint.style.maxWidth = '180px';
+      hint.style.fontSize = '12px';
+      const hintDefault = document.createElement('option');
+      hintDefault.value = '';
+      hintDefault.textContent = 'Tables détectées…';
+      hint.appendChild(hintDefault);
+      availableTables.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        if (t === (currentValue || def.default)) opt.selected = true;
+        hint.appendChild(opt);
+      });
+      hint.onchange = () => { if (hint.value) input.value = hint.value; hint.value = ''; };
+      row.appendChild(hint);
+    }
 
-    row.appendChild(select);
-    return row;
+    wrap.appendChild(row);
+
+    // Indication du nom par défaut
+    const hint2 = document.createElement('div');
+    hint2.style.cssText = 'font-size:11px;color:#aaa;margin-top:2px';
+    hint2.textContent = `Nom par défaut suggéré : ${def.default}`;
+    wrap.appendChild(hint2);
+
+    return wrap;
+  }
+
+  // Lit la valeur d'un champ de config (input texte)
+  function getSelectValue(key) {
+    const el = document.getElementById(`cfg-sel-${key}`);
+    return el ? el.value.trim() : '';
   }
 
   async function show() {
@@ -1088,16 +1134,16 @@ const configScreen = (() => {
     btn.disabled = true;
     btn.textContent = 'Enregistrement…';
 
-    // Vérifie que toutes les tables sources sont sélectionnées
+    // Vérifie que toutes les tables sources sont renseignées
     const missing = [];
     TABLE_DEFINITIONS.forEach(def => {
-      const sel = document.getElementById(`cfg-sel-${def.key}`);
-      if (!sel || !sel.value) missing.push(def.label);
+      const v = getSelectValue(def.key);
+      if (!v) missing.push(def.label);
     });
 
     if (missing.length > 0) {
       document.getElementById('cfg-err').textContent =
-        'Veuillez sélectionner une table pour : ' + missing.join(', ');
+        'Veuillez renseigner le nom de table pour : ' + missing.join(', ');
       document.getElementById('cfg-err').style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Enregistrer la configuration →';
@@ -1112,10 +1158,8 @@ const configScreen = (() => {
     ]);
 
     for (const def of TABLE_DEFINITIONS) {
-      const sel = document.getElementById(`cfg-sel-${def.key}`);
-      if (sel && sel.value) {
-        await saveTableName(def.key, sel.value);
-      }
+      const v = getSelectValue(def.key);
+      if (v) await saveTableName(def.key, v);
     }
 
     // Ferme l'écran de config et recharge
@@ -1989,14 +2033,17 @@ async function boot() {
   grist.ready({ requiredAccess: 'full' });
 
   // Crée CONFIG si absente
-  await ensureTable(TABLE_CONFIG, [
-    { id: 'etape', type: 'Text' },
-    { id: 'statut', type: 'Text' },
-    { id: 'updated_at', type: 'Text' },
-  ]);
+  try {
+    await ensureTable(TABLE_CONFIG, [
+      { id: 'etape', type: 'Text' },
+      { id: 'statut', type: 'Text' },
+      { id: 'updated_at', type: 'Text' },
+    ]);
+  } catch(_) {}
 
   // Vérifie si les tables sont déjà configurées
-  const tablesConfigured = await loadTableNames();
+  let tablesConfigured = false;
+  try { tablesConfigured = await loadTableNames(); } catch(_) {}
 
   if (!tablesConfigured) {
     // Première utilisation ou config incomplète → affiche l'écran de config
