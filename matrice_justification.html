@@ -269,6 +269,26 @@
 
     /* Bouton "passer à l'étape suivante" en bas de chaque section complétée */
     .next-btn-wrap { margin-top: .5rem; }
+    /* Config screen selects */
+    .cfg-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .cfg-label {
+      font-size: 13px; color: #555; min-width: 220px; flex-shrink: 0;
+    }
+    .cfg-label strong { color: #1a1a1a; font-weight: 600; }
+    .cfg-select {
+      flex: 1; min-width: 180px;
+      font-size: 13px; padding: 6px 10px;
+      border: 1px solid #ccc; border-radius: 6px;
+      background: #fff; color: #1a1a1a; cursor: pointer;
+    }
+    .cfg-select:focus { outline: 2px solid #1565c0; border-color: #1565c0; }
+    .cfg-badge-ok {
+      font-size: 11px; padding: 2px 8px; border-radius: 20px;
+      background: #e6f4ea; color: #2e7d32; white-space: nowrap;
+    }
     .btn-next {
       background: #1a237e; color: #fff; border-color: #1a237e;
       font-size: 13px; padding: 7px 16px; border-radius: 6px;
@@ -279,6 +299,40 @@
 </head>
 <body>
 <div class="layout">
+
+  <!-- ══════════════════════════════════════════════════════
+       ÉCRAN DE CONFIGURATION (affiché si tables non configurées)
+  ══════════════════════════════════════════════════════ -->
+  <div id="config-screen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#f4f6f8;z-index:1000;overflow-y:auto;padding:2rem">
+    <div style="max-width:640px;margin:0 auto">
+      <div style="margin-bottom:1.5rem">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#9fa8da;margin-bottom:4px">INRAE</div>
+        <div style="font-size:20px;font-weight:700;color:#1a237e;margin-bottom:6px">Configuration de la matrice</div>
+        <div style="font-size:13px;color:#555">Associez chaque source de données à la table correspondante dans votre Grist. Cette configuration est sauvegardée et ne sera demandée qu'une seule fois.</div>
+      </div>
+
+      <div id="cfg-err" class="alert alert-err" style="display:none;margin-bottom:1rem"></div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">Tables de données sources</div>
+        <div id="cfg-selects">
+          <div style="color:#aaa;font-size:13px"><span class="spinner"></span> Chargement des tables Grist…</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:.5rem">Tables de référence</div>
+        <div class="card-sub">Tables utilisées comme listes de filtrage.</div>
+        <div id="cfg-selects-ref"></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:1rem">
+        <button class="btn-primary" id="cfg-btn-save" onclick="configScreen.save()" disabled>
+          Enregistrer la configuration →
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════════════════════════
        SIDEBAR — navigation + état des étapes
@@ -292,6 +346,12 @@
     <nav class="nav-list" id="nav-list">
       <!-- Généré par JS -->
     </nav>
+
+    <div style="padding:8px 14px;border-top:1px solid #283593">
+      <button onclick="configScreen.show()" style="width:100%;font-size:11px;padding:5px 8px;background:transparent;border:1px solid #3949ab;color:#9fa8da;border-radius:4px;cursor:pointer">
+        ⚙ Reconfigurer les tables
+      </button>
+    </div>
 
     <div class="sidebar-progress">
       <div class="sidebar-progress-label">Progression globale</div>
@@ -655,7 +715,7 @@
           <div class="card">
             <div class="card-title">Import des Missions 2025</div>
             <div class="card-sub">
-              Le widget va lire la table <strong>MISSIONS_2025</strong> et la filtrer
+              Le widget va lire la table <strong>Mission</strong> et la filtrer
               selon la liste de référence <strong>LISTE_MIS_25_MANQUE</strong>.
             </div>
             <div class="kv"><span class="kv-label">Lignes dans MISSIONS_2025</span><span class="kv-val" id="mis-s0-count"><span class="spinner"></span></span></div>
@@ -880,6 +940,197 @@
 
 <script>
 /* ══════════════════════════════════════════════════════════════════
+   TABLES DYNAMIQUES
+   Les noms de tables sont configurés par l'utilisateur et stockés
+   dans CONFIG. Tous les modules lisent leurs noms via TABLE_NAMES.
+══════════════════════════════════════════════════════════════════ */
+
+// Définition des tables attendues avec suggestion de nom par défaut
+const TABLE_DEFINITIONS = [
+  // Tables sources (extraction SIFAC/Notilus — lecture seule)
+  { key: 'JDP_2025',     label: 'Journal des Pièces 2025',      group: 'sources', default: 'JDP_2025' },
+  { key: 'JDP_2026',     label: 'Journal des Pièces 2026',      group: 'sources', default: 'JDP_2026' },
+  { key: 'MISSIONS',     label: 'Missions',                      group: 'sources', default: 'Mission' },
+  { key: 'PI',           label: 'Prestations internes (PI)',     group: 'sources', default: 'PI' },
+  { key: 'CDA',          label: 'Commandes d'achat (CDA)',      group: 'sources', default: 'CDA' },
+  { key: 'SF',           label: 'Services faits (SF)',           group: 'sources', default: 'SF' },
+  { key: 'FACTURES',     label: 'Factures',                      group: 'sources', default: 'Factures' },
+  { key: 'RAPPRO',       label: 'Rapprochement',                 group: 'sources', default: 'Rappro' },
+  // Tables de référence (lecture seule)
+  { key: 'LISTE_MIS',    label: 'Liste référence Missions',      group: 'refs',    default: 'LISTE_MIS_25_MANQUE' },
+];
+
+// Noms de tables résolus (remplis après configuration)
+const TABLE_NAMES = {};
+
+// Charge les noms depuis CONFIG
+async function loadTableNames() {
+  try {
+    const rows = await fetchAllRows(TABLE_CONFIG);
+    let allSet = true;
+    TABLE_DEFINITIONS.forEach(def => {
+      const row = rows.find(r => str(r.etape) === 'table_' + def.key);
+      if (row && str(row.statut)) {
+        TABLE_NAMES[def.key] = str(row.statut);
+      } else {
+        allSet = false;
+      }
+    });
+    return allSet;
+  } catch(_) {
+    return false;
+  }
+}
+
+// Sauvegarde un nom de table dans CONFIG
+async function saveTableName(key, tableName) {
+  const etape = 'table_' + key;
+  try {
+    const rows = await fetchAllRows(TABLE_CONFIG);
+    const existing = rows.find(r => str(r.etape) === etape);
+    const payload = { statut: tableName, updated_at: new Date().toISOString() };
+    if (existing) {
+      await grist.docApi.applyUserActions([['UpdateRecord', TABLE_CONFIG, existing.id, payload]]);
+    } else {
+      await grist.docApi.applyUserActions([['AddRecord', TABLE_CONFIG, null, { etape, ...payload }]]);
+    }
+    TABLE_NAMES[key] = tableName;
+  } catch(e) { console.warn('saveTableName:', e.message); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MODULE : ÉCRAN DE CONFIGURATION
+══════════════════════════════════════════════════════════════════ */
+const configScreen = (() => {
+  let availableTables = [];
+
+  async function loadAvailableTables() {
+    try {
+      // Récupère la liste de toutes les tables du document Grist
+      const tables = await grist.docApi.listTables();
+      availableTables = tables.sort();
+      return availableTables;
+    } catch(e) {
+      console.warn('listTables:', e.message);
+      return [];
+    }
+  }
+
+  function buildSelect(def, currentValue) {
+    const selectId = `cfg-sel-${def.key}`;
+    const row = document.createElement('div');
+    row.className = 'cfg-row';
+
+    const label = document.createElement('div');
+    label.className = 'cfg-label';
+    label.innerHTML = `<strong>${def.label}</strong>`;
+    row.appendChild(label);
+
+    const select = document.createElement('select');
+    select.className = 'cfg-select';
+    select.id = selectId;
+
+    // Option vide
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '— Choisir une table —';
+    select.appendChild(emptyOpt);
+
+    // Options disponibles
+    availableTables.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      // Pré-sélectionne : valeur sauvegardée, ou correspondance avec le nom par défaut
+      if (currentValue && t === currentValue) opt.selected = true;
+      else if (!currentValue && t.toLowerCase() === def.default.toLowerCase()) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    row.appendChild(select);
+    return row;
+  }
+
+  async function show() {
+    // Cache le layout principal, affiche l'écran de config
+    document.getElementById('config-screen').style.display = 'block';
+    document.getElementById('cfg-err').style.display = 'none';
+
+    const tables = await loadAvailableTables();
+    if (tables.length === 0) {
+      document.getElementById('cfg-selects').innerHTML =
+        '<div class="alert alert-err">Impossible de lire la liste des tables Grist. Vérifiez les permissions du widget (accès complet requis).</div>';
+      return;
+    }
+
+    // Relit les noms déjà configurés
+    try { await loadTableNames(); } catch(_) {}
+
+    // Construit les selects pour les tables sources
+    const srcContainer = document.getElementById('cfg-selects');
+    srcContainer.innerHTML = '';
+    TABLE_DEFINITIONS.filter(d => d.group === 'sources').forEach(def => {
+      srcContainer.appendChild(buildSelect(def, TABLE_NAMES[def.key] || ''));
+    });
+
+    // Construit les selects pour les tables de référence
+    const refContainer = document.getElementById('cfg-selects-ref');
+    refContainer.innerHTML = '';
+    TABLE_DEFINITIONS.filter(d => d.group === 'refs').forEach(def => {
+      refContainer.appendChild(buildSelect(def, TABLE_NAMES[def.key] || ''));
+    });
+
+    document.getElementById('cfg-btn-save').disabled = false;
+  }
+
+  async function save() {
+    const btn = document.getElementById('cfg-btn-save');
+    btn.disabled = true;
+    btn.textContent = 'Enregistrement…';
+
+    // Vérifie que toutes les tables sources sont sélectionnées
+    const missing = [];
+    TABLE_DEFINITIONS.forEach(def => {
+      const sel = document.getElementById(`cfg-sel-${def.key}`);
+      if (!sel || !sel.value) missing.push(def.label);
+    });
+
+    if (missing.length > 0) {
+      document.getElementById('cfg-err').textContent =
+        'Veuillez sélectionner une table pour : ' + missing.join(', ');
+      document.getElementById('cfg-err').style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Enregistrer la configuration →';
+      return;
+    }
+
+    // Sauvegarde dans CONFIG
+    await ensureTable(TABLE_CONFIG, [
+      { id: 'etape', type: 'Text' },
+      { id: 'statut', type: 'Text' },
+      { id: 'updated_at', type: 'Text' },
+    ]);
+
+    for (const def of TABLE_DEFINITIONS) {
+      const sel = document.getElementById(`cfg-sel-${def.key}`);
+      if (sel && sel.value) {
+        await saveTableName(def.key, sel.value);
+      }
+    }
+
+    // Ferme l'écran de config et recharge
+    document.getElementById('config-screen').style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer la configuration →';
+
+    // Recharge la page pour appliquer la nouvelle config
+    location.reload();
+  }
+
+  return { show, save };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
    CONFIGURATION DES ÉTAPES
 ══════════════════════════════════════════════════════════════════ */
 const ETAPES = [
@@ -991,6 +1242,8 @@ async function tableExists(name) {
 }
 
 async function fetchAllRows(tableName) {
+  // Accepte une fonction (résolution dynamique) ou une string
+  if (typeof tableName === 'function') tableName = tableName();
   const t = await grist.docApi.fetchTable(tableName);
   return (t.id || []).map((id, i) => {
     const rec = { id };
@@ -1147,7 +1400,7 @@ const lancement = (() => {
         await grist.docApi.applyUserActions([['BulkRemoveRecord', 'PIECES_JUSTIF', pjRows.map(r => r.id)]]);
         pjRows = [];
       }
-      jdpRows = await fetchAllRows('JDP_2025');
+      jdpRows = await fetchAllRows(TABLE_NAMES['JDP_2025'] || 'JDP_2025');
     } catch(e) {
       showErr('l-s3-err', 'l-s3-err-msg', e.message); setStep(3); return;
     }
@@ -1227,6 +1480,8 @@ const lancement = (() => {
         ? ((await fetchAllRows('PIECES_JUSTIF')).length + ' ligne(s) — sera vidée')
         : 'Absente — sera créée';
       const jdp = await fetchAllRows('JDP_2025');
+      const jdpName = TABLE_NAMES['JDP_2025'] || 'JDP_2025';
+      const jdp = await fetchAllRows(jdpName);
       document.getElementById('l-s0-jdp').textContent =
         jdp.length > 0 ? jdp.length + ' ligne(s)' : 'Vide';
       const cfgExists = await tableExists(TABLE_CONFIG);
@@ -1243,7 +1498,7 @@ const lancement = (() => {
     // Récupère les données pour reconstituer l'affichage du résultat
     try {
       pjRows  = await fetchAllRows('PIECES_JUSTIF');
-      jdpRows = await fetchAllRows('JDP_2025');
+      jdpRows = await fetchAllRows(TABLE_NAMES['JDP_2025'] || 'JDP_2025');
     } catch(_) {}
 
     const jdp25Statut = configMap['jdp2025'] || '';
@@ -1486,8 +1741,8 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
    - Écriture      : CONFIG
 ══════════════════════════════════════════════════════════════════ */
 const missions = (() => {
-  const TABLE_SRC   = 'MISSIONS_2025';
-  const TABLE_LISTE = 'LISTE_MIS_25_MANQUE';
+  const TABLE_SRC   = () => TABLE_NAMES['MISSIONS'] || 'Mission';
+  const TABLE_LISTE = () => TABLE_NAMES['LISTE_MIS'] || 'LISTE_MIS_25_MANQUE';
   const ETAPE_KEY   = 'missions';
 
   // Colonnes MISSIONS_2025 utilisées (identifiants Grist)
@@ -1716,8 +1971,8 @@ const missions = (() => {
 })();
 
 /* Instanciation des modules JDP */
-const jdp25 = makeJDPModule('2025', 'JDP_2025', 'jdp2025', 'j25');
-const jdp26 = makeJDPModule('2026', 'JDP_2026', 'jdp2026', 'j26');
+const jdp25 = makeJDPModule('2025', () => TABLE_NAMES['JDP_2025'] || 'JDP_2025', 'jdp2025', 'j25');
+const jdp26 = makeJDPModule('2026', () => TABLE_NAMES['JDP_2026'] || 'JDP_2026', 'jdp2026', 'j26');
 
 /* ══════════════════════════════════════════════════════════════════
    ERREUR TECHNIQUE (partagée)
@@ -1732,6 +1987,22 @@ function showErr(cardId, msgId, msg) {
 ══════════════════════════════════════════════════════════════════ */
 async function boot() {
   grist.ready({ requiredAccess: 'full' });
+
+  // Crée CONFIG si absente
+  await ensureTable(TABLE_CONFIG, [
+    { id: 'etape', type: 'Text' },
+    { id: 'statut', type: 'Text' },
+    { id: 'updated_at', type: 'Text' },
+  ]);
+
+  // Vérifie si les tables sont déjà configurées
+  const tablesConfigured = await loadTableNames();
+
+  if (!tablesConfigured) {
+    // Première utilisation ou config incomplète → affiche l'écran de config
+    await configScreen.show();
+    return; // boot s'arrête ici, location.reload() sera appelé après save()
+  }
 
   // Chargement initial de CONFIG
   const configMap = await loadConfig();
