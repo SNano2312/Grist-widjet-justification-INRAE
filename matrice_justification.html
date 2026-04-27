@@ -952,7 +952,7 @@ const TABLE_DEFINITIONS = [
   { key: 'JDP_2026',     label: 'Journal des Pièces 2026',      group: 'sources', default: 'JDP_2026' },
   { key: 'MISSIONS',     label: 'Missions',                      group: 'sources', default: 'Mission' },
   { key: 'PI',           label: 'Prestations internes (PI)',     group: 'sources', default: 'PI' },
-  { key: 'CDA',          label: 'Commandes d'achat (CDA)',      group: 'sources', default: 'CDA' },
+  { key: 'CDA',          label: "Commandes d'achat (CDA)",      group: 'sources', default: 'CDA' },
   { key: 'SF',           label: 'Services faits (SF)',           group: 'sources', default: 'SF' },
   { key: 'FACTURES',     label: 'Factures',                      group: 'sources', default: 'Factures' },
   { key: 'RAPPRO',       label: 'Rapprochement',                 group: 'sources', default: 'Rappro' },
@@ -1523,7 +1523,6 @@ const lancement = (() => {
       document.getElementById('l-s0-pj').textContent = pjExists
         ? ((await fetchAllRows('PIECES_JUSTIF')).length + ' ligne(s) — sera vidée')
         : 'Absente — sera créée';
-      const jdp = await fetchAllRows('JDP_2025');
       const jdpName = TABLE_NAMES['JDP_2025'] || 'JDP_2025';
       const jdp = await fetchAllRows(jdpName);
       document.getElementById('l-s0-jdp').textContent =
