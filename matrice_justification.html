@@ -642,8 +642,152 @@
       </div>
       <div class="section-blocked-msg" id="sblock-missions">Veuillez d'abord compléter l'étape <strong>Validation JDP 2026</strong>.</div>
       <div class="section-body" id="sbody-missions">
-        <div class="card"><div class="card-sub">Ce widget sera disponible prochainement.</div></div>
-      </div>
+
+        <div class="stepper">
+          <div class="st active" id="mis-st0">Étape 4 · Vérification</div>
+          <div class="st" id="mis-st1">Étape 4 · Contrôles</div>
+          <div class="st" id="mis-st2">Étape 4 · Confirmation</div>
+          <div class="st" id="mis-st3">Étape 4 · Résultat</div>
+        </div>
+
+        <!-- Étape 4.1 — Vérification initiale -->
+        <div id="mis-step-0" class="step active">
+          <div class="card">
+            <div class="card-title">Import des Missions 2025</div>
+            <div class="card-sub">
+              Le widget va lire la table <strong>MISSIONS_2025</strong> et la filtrer
+              selon la liste de référence <strong>LISTE_MIS_25_MANQUE</strong>.
+            </div>
+            <div class="kv"><span class="kv-label">Lignes dans MISSIONS_2025</span><span class="kv-val" id="mis-s0-count"><span class="spinner"></span></span></div>
+            <div class="kv"><span class="kv-label">Lignes dans LISTE_MIS_25_MANQUE</span><span class="kv-val" id="mis-s0-liste">—</span></div>
+            <div id="mis-s0-err" class="alert alert-err" style="display:none"></div>
+            <div class="btn-row">
+              <button class="btn-primary" id="mis-btn-start" onclick="missions.startValidation()" disabled>
+                Lancer la vérification
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Étape 4.2 — Contrôles métier -->
+        <div id="mis-step-1" class="step">
+
+          <div id="mis-s1-loading" class="card" style="display:none">
+            <div class="card-sub"><span class="spinner"></span>Contrôles en cours…</div>
+            <div class="progress-wrap"><div class="progress-bar" id="mis-s1-progress"></div></div>
+          </div>
+
+          <!-- Table vide -->
+          <div id="mis-s1-empty" class="card" style="display:none">
+            <span class="badge badge-warn">Table vide</span>
+            <div class="card-title">Aucune donnée dans MISSIONS_2025</div>
+            <div class="card-sub">
+              Importez d'abord les données depuis Notilus dans Grist, puis relancez.<br><br>
+              L'extraction doit couvrir la période <strong>01/01/2025 au 31/12/2025</strong>.
+            </div>
+            <div class="btn-row"><button onclick="missions.reset()">Réessayer</button></div>
+          </div>
+
+          <!-- Erreur dates -->
+          <div id="mis-s1-err-dates" class="card" style="display:none">
+            <span class="badge badge-err">Erreur — période incorrecte</span>
+            <div class="card-title">Les données ne couvrent pas la bonne période</div>
+            <div class="card-sub">
+              L'extraction doit couvrir exactement <strong>du 01/01/2025 au 31/12/2025</strong>.<br><br>
+              Vous NE DEVEZ JAMAIS ouvrir ou modifier le fichier d'extraction avant import.
+            </div>
+            <div class="alert alert-err" id="mis-s1-err-dates-detail"></div>
+            <div class="btn-row"><button onclick="missions.reset()">Recommencer</button></div>
+          </div>
+
+          <!-- Liste de référence vide -->
+          <div id="mis-s1-err-liste" class="card" style="display:none">
+            <span class="badge badge-err">Erreur — liste de référence vide</span>
+            <div class="card-title">LISTE_MIS_25_MANQUE est vide</div>
+            <div class="card-sub">
+              Aucune valeur dans la liste de référence des N° commandes SIFAC.<br><br>
+              Vérifiez que la table <strong>LISTE_MIS_25_MANQUE</strong> contient bien des données.
+            </div>
+            <div class="btn-row"><button onclick="missions.reset()">Recommencer</button></div>
+          </div>
+
+          <!-- Aucune ligne filtrée -->
+          <div id="mis-s1-warn-vide" class="card" style="display:none">
+            <span class="badge badge-warn">Aucune mission trouvée</span>
+            <div class="card-title">Aucune ligne ne correspond à la liste de référence</div>
+            <div class="card-sub">
+              Aucune ligne de MISSIONS_2025 ne correspond aux N° commandes SIFAC
+              de la liste LISTE_MIS_25_MANQUE.
+            </div>
+            <div class="alert alert-warn">
+              Cela peut être normal si les Missions 2025 ne sont pas nécessaires
+              pour votre justification.
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="missions.confirmerSansLignes()">
+                Continuer sans Missions 2025
+              </button>
+              <button onclick="missions.reset()">Vérifier les données</button>
+            </div>
+          </div>
+
+          <!-- Contrôles OK -->
+          <div id="mis-s1-ok" class="card" style="display:none">
+            <span class="badge badge-ok">Contrôles réussis</span>
+            <div class="card-title">Données MISSIONS 2025 conformes</div>
+            <div class="data-block" id="mis-s1-ok-details"></div>
+            <div class="btn-row" style="margin-top:.75rem">
+              <button class="btn-primary" onclick="missions.goStep(2)">Confirmer →</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Étape 4.3 — Confirmation -->
+        <div id="mis-step-2" class="step">
+          <div class="card">
+            <span class="badge badge-info">Confirmation requise</span>
+            <div class="card-title">Confirmez-vous l'import des Missions 2025 ?</div>
+            <div class="data-block" id="mis-s2-summary"></div>
+            <div class="alert alert-warn" style="margin-top:.75rem">
+              Seules les missions dont le N° commande SIFAC figure dans
+              <strong>LISTE_MIS_25_MANQUE</strong> seront intégrées à la justification.
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="missions.confirmerImport()">Oui, confirmer</button>
+              <button onclick="missions.reset()">Non, annuler</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Étape 4.4 — Résultat -->
+        <div id="mis-step-3" class="step">
+          <div id="mis-s3-ok" class="card" style="display:none">
+            <span class="badge badge-ok">Missions 2025 intégrées</span>
+            <div class="card-title">Import Missions 2025 terminé</div>
+            <div class="data-block" id="mis-s3-ok-details"></div>
+            <div class="next-btn-wrap" style="margin-top:1rem">
+              <button class="btn-next" onclick="scrollToSection('section-pi')">↓ Aller à : Import Prestations internes</button>
+            </div>
+          </div>
+          <div id="mis-s3-skip" class="card" style="display:none">
+            <span class="badge badge-info">Étape ignorée</span>
+            <div class="card-title">Missions 2025 non nécessaires</div>
+            <div class="card-sub">Aucune mission à intégrer pour cette justification.</div>
+            <div class="next-btn-wrap" style="margin-top:1rem">
+              <button class="btn-next" onclick="scrollToSection('section-pi')">↓ Aller à : Import Prestations internes</button>
+            </div>
+          </div>
+          <div id="mis-s3-err" class="card" style="display:none">
+            <span class="badge badge-err">Erreur technique</span>
+            <div class="card-title">Une erreur est survenue</div>
+            <div id="mis-s3-err-msg" class="card-sub"></div>
+            <div class="alert alert-err">Faites une capture d'écran et déposez un ticket Ariane via SIFAC.</div>
+            <div class="btn-row"><button onclick="missions.reset()">Recommencer</button></div>
+          </div>
+        </div>
+
+      </div><!-- /section-body missions -->
     </section>
     <hr class="section-sep">
 
@@ -1336,6 +1480,241 @@ function makeJDPModule(annee, table, etapeCourante, prefix) {
   return { startValidation, forcerValidation, confirmerValidation, goStep, reset, initCount, restoreState };
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   MODULE : MISSIONS 2025
+   - Lecture seule : MISSIONS_2025, LISTE_MIS_25_MANQUE
+   - Écriture      : CONFIG
+══════════════════════════════════════════════════════════════════ */
+const missions = (() => {
+  const TABLE_SRC   = 'MISSIONS_2025';
+  const TABLE_LISTE = 'LISTE_MIS_25_MANQUE';
+  const ETAPE_KEY   = 'missions';
+
+  // Colonnes MISSIONS_2025 utilisées (identifiants Grist)
+  const COLS = {
+    no_om:           'No_OM',
+    dte_creation:    'Dte_Creation',
+    nom_voyageur:    'Nom_du_voyageur',
+    matricule:       'Matricule',
+    date_valid_om:   'Date_validation_OM',
+    objet_om:        'Objet_OM',
+    date_depart:     'Date_depart',
+    date_fin:        'Date_fin',
+    no_cde_sifac:    'No_cde_SIFAC',
+    no_rc_sifac:     'No_rc_SIFAC',
+    destination_od:  'Destinantion_OD',
+  };
+
+  let srcRows      = [];
+  let listeRef     = new Set();
+  let filteredRows = [];
+  let colListe     = null; // nom de la 1ère colonne de LISTE_MIS_25_MANQUE
+
+  function setStep(n) {
+    [0,1,2,3].forEach(i => {
+      const el = document.getElementById(`mis-step-${i}`);
+      if (el) el.className = 'step' + (i === n ? ' active' : '');
+      const st = document.getElementById(`mis-st${i}`);
+      if (st) st.className = 'st' + (i < n ? ' done' : i === n ? ' active' : '');
+    });
+  }
+  function goStep(n) { setStep(n); }
+
+  function reset() {
+    srcRows = []; listeRef = new Set(); filteredRows = [];
+    setStep(0);
+    [1,2,3].forEach(i => {
+      const el = document.getElementById(`mis-step-${i}`);
+      if (el) el.querySelectorAll('.card').forEach(c => c.style.display = 'none');
+    });
+    document.getElementById('mis-s0-count').innerHTML = '<span class="spinner"></span>';
+    document.getElementById('mis-s0-liste').textContent = '—';
+    initCount();
+  }
+
+  // Contrôle des dates : première ligne B = 23/01/2025, dernière = 31/12/2025
+  function validerDates(rows) {
+    if (rows.length === 0) return { ok: true };
+    const first = rows[0];
+    const last  = rows[rows.length - 1];
+    const vFirst = str(first[COLS.dte_creation]);
+    const vLast  = str(last[COLS.dte_creation]);
+    // Accepte les formats date Grist (timestamp ou string contenant 2025)
+    const okFirst = vFirst.includes('2025') || vFirst.includes('01/01/2025') || vFirst.includes('2025-01');
+    const okLast  = vLast.includes('2025')  || vLast.includes('31/12/2025')  || vLast.includes('2025-12');
+    if (!okFirst || !okLast) {
+      return { ok: false, vFirst, vLast };
+    }
+    return { ok: true };
+  }
+
+  async function startValidation() {
+    document.getElementById('mis-btn-start').disabled = true;
+    setStep(1); show('mis-s1-loading');
+    animProgress('mis-s1-progress', 0, 25, 400);
+
+    // Lecture MISSIONS_2025 (lecture seule)
+    try { srcRows = await fetchAllRows(TABLE_SRC); }
+    catch(e) { hide('mis-s1-loading'); showMisErr(e.message); return; }
+
+    animProgress('mis-s1-progress', 25, 50, 300);
+
+    if (srcRows.length === 0) { hide('mis-s1-loading'); show('mis-s1-empty'); return; }
+
+    // Contrôle dates
+    const checkDates = validerDates(srcRows);
+    if (!checkDates.ok) {
+      animProgress('mis-s1-progress', 50, 100, 200);
+      setTimeout(() => {
+        hide('mis-s1-loading');
+        document.getElementById('mis-s1-err-dates-detail').textContent =
+          `Première date trouvée : "${checkDates.vFirst}" — Dernière : "${checkDates.vLast}"`;
+        show('mis-s1-err-dates');
+      }, 220);
+      return;
+    }
+
+    animProgress('mis-s1-progress', 50, 75, 300);
+
+    // Lecture LISTE_MIS_25_MANQUE — utilise la première colonne disponible
+    try {
+      const listeRows = await fetchAllRows(TABLE_LISTE);
+      if (listeRows.length === 0) {
+        hide('mis-s1-loading'); show('mis-s1-err-liste'); return;
+      }
+      // Détecte la première colonne (hors 'id' et 'manualSort')
+      const allCols = Object.keys(listeRows[0])
+        .filter(k => k !== 'id' && k !== 'manualSort');
+      colListe = allCols[0];
+      listeRows.forEach(r => {
+        const v = str(r[colListe]);
+        if (v) listeRef.add(v);
+      });
+    } catch(e) { hide('mis-s1-loading'); showMisErr(e.message); return; }
+
+    animProgress('mis-s1-progress', 75, 95, 300);
+
+    // Filtrage : ne garder que les lignes dont No_cde_SIFAC est dans listeRef
+    filteredRows = srcRows.filter(r => {
+      const v = str(r[COLS.no_cde_sifac]);
+      return v && listeRef.has(v);
+    });
+
+    animProgress('mis-s1-progress', 95, 100, 200);
+
+    setTimeout(() => {
+      hide('mis-s1-loading');
+      if (filteredRows.length === 0) { show('mis-s1-warn-vide'); return; }
+      afficherOK();
+    }, 220);
+  }
+
+  function afficherOK() {
+    renderDataBlock('mis-s1-ok-details', [
+      { label: 'Lignes dans MISSIONS_2025',
+        pill: srcRows.length + ' ligne' + (srcRows.length > 1 ? 's' : '') },
+      { label: 'Références dans LISTE_MIS_25_MANQUE',
+        pill: listeRef.size + ' N° commande' + (listeRef.size > 1 ? 's' : '') },
+      { label: 'Lignes retenues après filtre',
+        pill: filteredRows.length + ' mission' + (filteredRows.length > 1 ? 's' : ''),
+        pillCls: 'pill-ok' },
+      { label: 'Période couverte', value: '01/01/2025 au 31/12/2025' },
+    ]);
+    show('mis-s1-ok');
+    buildConfirmation();
+  }
+
+  function buildConfirmation() {
+    renderDataBlock('mis-s2-summary', [
+      { label: 'Lignes source (MISSIONS_2025)',
+        pill: srcRows.length + ' ligne' + (srcRows.length > 1 ? 's' : '') },
+      { label: 'Lignes filtrées à intégrer',
+        pill: filteredRows.length + ' mission' + (filteredRows.length > 1 ? 's' : ''),
+        pillCls: 'pill-ok' },
+      { label: 'Filtre appliqué', value: 'N° commande SIFAC ∈ LISTE_MIS_25_MANQUE' },
+      { label: 'Période', value: '01/01/2025 au 31/12/2025' },
+    ]);
+  }
+
+  async function confirmerImport() {
+    try {
+      await setConfig(ETAPE_KEY, 'valide');
+      renderDataBlock('mis-s3-ok-details', [
+        { label: 'Missions intégrées',
+          pill: filteredRows.length + ' mission' + (filteredRows.length > 1 ? 's' : ''),
+          pillCls: 'pill-ok' },
+        { label: 'Lignes source analysées',
+          pill: srcRows.length + ' ligne' + (srcRows.length > 1 ? 's' : '') },
+        { label: 'Étape suivante', value: 'Import Prestations internes (PI)' },
+      ]);
+      show('mis-s3-ok'); setStep(3);
+    } catch(e) { showMisErr(e.message); }
+  }
+
+  async function confirmerSansLignes() {
+    try {
+      await setConfig(ETAPE_KEY, 'ignore');
+      show('mis-s3-skip'); setStep(3);
+    } catch(e) { showMisErr(e.message); }
+  }
+
+  function showMisErr(msg) {
+    document.getElementById('mis-s3-err-msg').textContent = 'Erreur : ' + msg;
+    show('mis-s3-err'); setStep(3);
+  }
+
+  async function restoreState(statut) {
+    if (!statut || statut === 'en_cours') return;
+    if (statut === 'ignore') { show('mis-s3-skip'); setStep(3); return; }
+    if (statut === 'valide') {
+      // Relit les compteurs pour reconstituer l'affichage
+      try {
+        srcRows      = await fetchAllRows(TABLE_SRC);
+        const listeRows = await fetchAllRows(TABLE_LISTE);
+        const allCols = Object.keys(listeRows[0] || {})
+          .filter(k => k !== 'id' && k !== 'manualSort');
+        colListe = allCols[0];
+        listeRows.forEach(r => { const v = str(r[colListe]); if (v) listeRef.add(v); });
+        filteredRows = srcRows.filter(r => {
+          const v = str(r[COLS.no_cde_sifac]);
+          return v && listeRef.has(v);
+        });
+      } catch(_) {}
+      renderDataBlock('mis-s3-ok-details', [
+        { label: 'Missions intégrées',
+          pill: filteredRows.length + ' mission' + (filteredRows.length > 1 ? 's' : ''),
+          pillCls: 'pill-ok' },
+        { label: 'Lignes source analysées',
+          pill: srcRows.length + ' ligne' + (srcRows.length > 1 ? 's' : '') },
+        { label: 'Étape suivante', value: 'Import Prestations internes (PI)' },
+      ]);
+      show('mis-s3-ok'); setStep(3);
+    }
+  }
+
+  async function initCount() {
+    try {
+      const rows = await fetchAllRows(TABLE_SRC);
+      document.getElementById('mis-s0-count').textContent =
+        rows.length > 0 ? rows.length + ' ligne(s)' : 'Vide';
+    } catch(e) {
+      document.getElementById('mis-s0-count').textContent = 'Non accessible';
+      document.getElementById('mis-s0-err').textContent = e.message;
+      show('mis-s0-err');
+    }
+    try {
+      const listeRows = await fetchAllRows(TABLE_LISTE);
+      document.getElementById('mis-s0-liste').textContent =
+        listeRows.length > 0 ? listeRows.length + ' référence(s)' : 'Vide';
+    } catch(_) {
+      document.getElementById('mis-s0-liste').textContent = 'Non accessible';
+    }
+    document.getElementById('mis-btn-start').disabled = false;
+  }
+
+  return { startValidation, confirmerImport, confirmerSansLignes, goStep, reset, restoreState, initCount };
+})();
+
 /* Instanciation des modules JDP */
 const jdp25 = makeJDPModule('2025', 'JDP_2025', 'jdp2025', 'j25');
 const jdp26 = makeJDPModule('2026', 'JDP_2026', 'jdp2026', 'j26');
@@ -1363,11 +1742,13 @@ async function boot() {
   await lancement.init();
   await jdp25.initCount();
   await jdp26.initCount();
+  await missions.initCount();
 
   // Restaure l'affichage de chaque section selon CONFIG
   await lancement.restoreState(configMap['lancement'] || '', configMap);
   await jdp25.restoreState(configMap['jdp2025'] || '');
   await jdp26.restoreState(configMap['jdp2026'] || '');
+  await missions.restoreState(configMap['missions'] || '');
 
   // Polling toutes les 5s pour rafraîchir sidebar + états
   setInterval(async () => {
