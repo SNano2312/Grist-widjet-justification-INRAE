@@ -1005,32 +1005,18 @@ const configScreen = (() => {
   let availableTables = [];
 
   async function loadAvailableTables() {
-    // grist.docApi.listTables() n'est pas disponible dans toutes les versions.
-    // On teste chaque table connue pour vérifier son existence,
-    // et on complète avec les noms déjà sauvegardés dans CONFIG.
+    // Construit la liste des tables suggérées sans tester leur existence
+    // (fetchTable sur des noms avec espaces est instable selon les versions Grist).
+    // On affiche directement les noms par défaut + les noms déjà configurés.
     const candidates = new Set();
 
-    // Ajoute les noms par défaut
+    // Noms par défaut définis dans TABLE_DEFINITIONS
     TABLE_DEFINITIONS.forEach(def => candidates.add(def.default));
 
-    // Ajoute les noms déjà configurés
+    // Noms déjà sauvegardés dans CONFIG (sessions précédentes)
     Object.values(TABLE_NAMES).forEach(n => { if (n) candidates.add(n); });
 
-    // Teste chaque candidat pour vérifier son existence dans Grist
-    const confirmed = [];
-    for (const name of candidates) {
-      try {
-        await grist.docApi.fetchTable(name);
-        confirmed.push(name);
-      } catch(_) {}
-    }
-
-    // Complète avec tous les noms configurés même si non confirmés
-    Object.values(TABLE_NAMES).forEach(n => {
-      if (n && !confirmed.includes(n)) confirmed.push(n);
-    });
-
-    availableTables = confirmed.sort();
+    availableTables = [...candidates].sort();
     return availableTables;
   }
 
