@@ -948,12 +948,12 @@
 // Définition des tables attendues avec suggestion de nom par défaut
 const TABLE_DEFINITIONS = [
   // Tables sources (extraction SIFAC/Notilus — lecture seule)
-  { key: 'JDP_2025',     label: 'Journal des Pièces 2025',      group: 'sources', default: 'JDP 2025' },
-  { key: 'JDP_2026',     label: 'Journal des Pièces 2026',      group: 'sources', default: 'JDP 2026' },
+  { key: 'JDP_2025',     label: 'Journal des Pièces 2025',      group: 'sources', default: 'JDP_2025' },
+  { key: 'JDP_2026',     label: 'Journal des Pièces 2026',      group: 'sources', default: 'JDP_2026' },
   { key: 'MISSIONS',     label: 'Missions',                      group: 'sources', default: 'Mission' },
-  { key: 'PI',           label: 'Prestations internes (PI)',     group: 'sources', default: 'PI 2026' },
+  { key: 'PI',           label: 'Prestations internes (PI)',     group: 'sources', default: 'PI_2026' },
   { key: 'CDA',          label: "Commandes d'achat (CDA)",      group: 'sources', default: 'CDA' },
-  { key: 'SF',           label: 'Services faits (SF)',           group: 'sources', default: 'Service fait' },
+  { key: 'SF',           label: 'Services faits (SF)',           group: 'sources', default: 'Service_fait' },
   { key: 'FACTURES',     label: 'Factures',                      group: 'sources', default: 'Factures' },
   { key: 'RAPPRO',       label: 'Rapprochement',                 group: 'sources', default: 'Rappro' },
   // Tables de référence (lecture seule)
@@ -1430,7 +1430,7 @@ const lancement = (() => {
         await grist.docApi.applyUserActions([['BulkRemoveRecord', 'PIECES_JUSTIF', pjRows.map(r => r.id)]]);
         pjRows = [];
       }
-      jdpRows = await fetchAllRows(TABLE_NAMES['JDP_2025'] || 'JDP 2025');
+      jdpRows = await fetchAllRows(TABLE_NAMES['JDP_2025'] || 'JDP_2025');
     } catch(e) {
       showErr('l-s3-err', 'l-s3-err-msg', e.message); setStep(3); return;
     }
@@ -1509,7 +1509,7 @@ const lancement = (() => {
       document.getElementById('l-s0-pj').textContent = pjExists
         ? ((await fetchAllRows('PIECES_JUSTIF')).length + ' ligne(s) — sera vidée')
         : 'Absente — sera créée';
-      const jdpName = TABLE_NAMES['JDP_2025'] || 'JDP 2025';
+      const jdpName = TABLE_NAMES['JDP_2025'] || 'JDP_2025';
       const jdp = await fetchAllRows(jdpName);
       document.getElementById('l-s0-jdp').textContent =
         jdp.length > 0 ? jdp.length + ' ligne(s)' : 'Vide';
@@ -1527,7 +1527,7 @@ const lancement = (() => {
     // Récupère les données pour reconstituer l'affichage du résultat
     try {
       pjRows  = await fetchAllRows('PIECES_JUSTIF');
-      jdpRows = await fetchAllRows(TABLE_NAMES['JDP_2025'] || 'JDP 2025');
+      jdpRows = await fetchAllRows(TABLE_NAMES['JDP_2025'] || 'JDP_2025');
     } catch(_) {}
 
     const jdp25Statut = configMap['jdp2025'] || '';
@@ -2000,8 +2000,8 @@ const missions = (() => {
 })();
 
 /* Instanciation des modules JDP */
-const jdp25 = makeJDPModule('2025', () => TABLE_NAMES['JDP_2025'] || 'JDP 2025', 'jdp2025', 'j25');
-const jdp26 = makeJDPModule('2026', () => TABLE_NAMES['JDP_2026'] || 'JDP 2026', 'jdp2026', 'j26');
+const jdp25 = makeJDPModule('2025', () => TABLE_NAMES['JDP_2025'] || 'JDP_2025', 'jdp2025', 'j25');
+const jdp26 = makeJDPModule('2026', () => TABLE_NAMES['JDP_2026'] || 'JDP_2026', 'jdp2026', 'j26');
 
 /* ══════════════════════════════════════════════════════════════════
    ERREUR TECHNIQUE (partagée)
